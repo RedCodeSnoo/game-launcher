@@ -104,9 +104,27 @@ function LogsViewer() {
 export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme: (t: "dark" | "light") => void }) {
   const toasts = useToasts();
   const [autostart, setAutostart] = useState(false);
-  const [minimize, setMinimize] = useState(false);
+  const [prefs, setPrefs] = useState<Record<string, string>>({});
   useEffect(() => void api.getAutostart().then(setAutostart).catch(() => {}), []);
-  useEffect(() => void api.getSettings().then((s) => setMinimize(s.minimize_on_launch === "1")).catch(() => {}), []);
+  useEffect(() => void api.getSettings().then(setPrefs).catch(() => {}), []);
+  const setPref = async (key: string, value: string) => {
+    try {
+      await api.setSetting(key, value);
+      setPrefs((p) => ({ ...p, [key]: value }));
+    } catch (e) {
+      toasts.error(errorMessage(e));
+    }
+  };
+  /** Ligne d'option avec interrupteur, enregistrée dans les réglages (« 1 » / « 0 »). */
+  const option = (key: string, label: string, hint: string, fallback = false, disabled = false) => (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted">{hint}</p>
+      </div>
+      <Toggle checked={(prefs[key] ?? (fallback ? "1" : "0")) === "1"} label={label} disabled={disabled} onChange={(v) => void setPref(key, v ? "1" : "0")} />
+    </div>
+  );
 
   const run = async (action: () => Promise<unknown>, ok: string) => {
     try {
@@ -149,27 +167,12 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
         </SettingsCard>
 
         <SettingsCard title="Pendant le jeu">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Réduire GameLauncher au lancement d'un jeu</p>
-              <p className="text-xs text-muted">La fenêtre est réduite dans la barre des tâches ; le suivi du temps de jeu continue.</p>
-            </div>
-            <Toggle
-              checked={minimize}
-              label="Réduire GameLauncher au lancement d'un jeu"
-              onChange={async (enabled) => {
-                try {
-                  await api.setSetting("minimize_on_launch", enabled ? "1" : "0");
-                  setMinimize(enabled);
-                } catch (e) {
-                  toasts.error(errorMessage(e));
-                }
-              }}
-            />
-          </div>
+          {option("minimize_on_launch", "Fermer la fenêtre au lancement d'un jeu", "GameLauncher reste dans la zone de notification ; le suivi du temps de jeu continue.")}
         </SettingsCard>
 
-        <SettingsCard title="Démarrage">
+        <SettingsCard title="Arrière-plan et démarrage" description="GameLauncher reste dans la zone de notification (près de l'horloge) pour suivre le temps de jeu.">
+          <div className="flex flex-col gap-4">
+          {option("close_quits", "La croix ferme complètement l'application", "Par défaut, fermer la fenêtre laisse GameLauncher actif dans la zone de notification. Pour quitter : clic droit sur l'icône, puis Quitter.")}
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium">Lancer GameLauncher au démarrage de Windows</p>
@@ -187,6 +190,8 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
                 }
               }}
             />
+          </div>
+          {option("start_minimized", "Démarrer réduit dans la zone de notification", "S'applique au démarrage avec Windows : la fenêtre ne s'ouvre pas, seule l'icône apparaît.", true, !autostart)}
           </div>
         </SettingsCard>
 

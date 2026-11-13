@@ -508,6 +508,30 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
     Ok(games)
 }
 
+/// Derniers jeux joués (installés, visibles), du plus récent au plus ancien : (identifiant, titre).
+pub fn recent_games(conn: &Connection, disabled: &HashSet<String>, limit: usize) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, g.title, gs.source,
+                max(COALESCE(gs.last_played_source, ''), COALESCE((SELECT MAX(ps.started_at) FROM play_sessions ps WHERE ps.game_source_id = gs.id), '')) AS played
+         FROM games g JOIN game_sources gs ON gs.game_id = g.id
+         WHERE gs.installed = 1 AND g.hidden = 0
+         ORDER BY played DESC",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
+    let mut out: Vec<(String, String)> = Vec::new();
+    for row in rows {
+        let (id, title, source, played) = row?;
+        if played.is_empty() || out.len() >= limit {
+            break;
+        }
+        if disabled.contains(&source) || out.iter().any(|(known, _)| *known == id) {
+            continue;
+        }
+        out.push((id, title));
+    }
+    Ok(out)
+}
+
 /// Bibliothèque sans les sources désactivées par l'utilisateur (F-PAR-02).
 pub fn list_visible_games(conn: &Connection, disabled: &HashSet<String>) -> Result<Vec<GameView>> {
     let mut games = list_games(conn)?;

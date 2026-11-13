@@ -1,35 +1,26 @@
-//! Intégration à Windows : démarrage automatique (F-PAR-04) et surveillance des disques (F-EXT-04).
+//! Intégration à Windows : reprise de l'ancienne entrée de démarrage et surveillance des disques (F-EXT-04).
 use crate::drives::DriveSnapshot;
 use crate::library;
 use crate::state::{AppState, Emitter};
-use anyhow::{Context, Result};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE};
+use winreg::enums::{HKEY_CURRENT_USER, KEY_READ};
 use winreg::RegKey;
 
 const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 const RUN_VALUE: &str = "GameLauncher";
+/// Argument ajouté par l'entrée de démarrage : il distingue un démarrage avec Windows d'un lancement manuel.
+pub const AUTOSTART_ARG: &str = "--autostart";
 
-/// L'application démarre-t-elle avec la session Windows ? (clé `Run` de l'utilisateur, sans droits administrateur)
-pub fn autostart_enabled() -> bool {
-    RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(RUN_KEY, KEY_READ).and_then(|k| k.get_value::<String, _>(RUN_VALUE)).is_ok()
-}
-
-pub fn set_autostart(enabled: bool) -> Result<()> {
-    let key = RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(RUN_KEY, KEY_SET_VALUE).context("ouverture de la clé de démarrage")?;
-    if enabled {
-        let exe = std::env::current_exe().context("chemin de l'application")?;
-        key.set_value(RUN_VALUE, &format!("\"{}\"", exe.display())).context("écriture de la clé de démarrage")?;
-    } else {
-        match key.delete_value(RUN_VALUE) {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e).context("suppression de la clé de démarrage"),
-        }
-    }
-    Ok(())
+/// Vrai si une entrée de démarrage d'une version précédente existe sans l'argument `--autostart`
+/// (elle doit alors être réécrite par le plugin, voir `lib.rs`).
+pub fn legacy_autostart_entry() -> bool {
+    RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey_with_flags(RUN_KEY, KEY_READ)
+        .and_then(|k| k.get_value::<String, _>(RUN_VALUE))
+        .map(|v| !v.contains(AUTOSTART_ARG))
+        .unwrap_or(false)
 }
 
 /// Surveille les lecteurs montés (interrogation légère toutes les 5 s). Au branchement ou au débranchement

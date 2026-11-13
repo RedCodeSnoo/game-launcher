@@ -89,13 +89,6 @@ export const api = {
   dismissMerge: (title: string) => call<void>("dismiss_merge", { title }),
 };
 
-/** Réduit la fenêtre du launcher (pendant qu'un jeu tourne). */
-export async function minimizeWindow(): Promise<void> {
-  if (!isTauri) return;
-  const { getCurrentWindow } = await import("@tauri-apps/api/window");
-  await getCurrentWindow().minimize();
-}
-
 /** Sélecteur de fichier natif (exécutable, image…). */
 export async function pickFile(title: string, extensions: string[]): Promise<string | null> {
   if (!isTauri) return window.prompt(`${title} (chemin)`) || null;

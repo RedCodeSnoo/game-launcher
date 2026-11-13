@@ -115,8 +115,18 @@ impl Watch {
     }
 }
 
+/// Jeu en cours, pour l'interface et la zone de notification.
+#[derive(Debug, Clone)]
+pub struct RunningInfo {
+    pub game_id: String,
+    pub title: String,
+    /// Début de la session (secondes Unix) ; `None` tant que le jeu n'est pas apparu.
+    pub started_at: Option<i64>,
+}
+
 struct Tracked {
     game_id: String,
+    title: String,
     source_id: String,
     session_id: String,
     watch: Watch,
@@ -144,6 +154,20 @@ impl Tracker {
         self.active.lock().unwrap_or_else(|e| e.into_inner()).iter().map(|t| t.game_id.clone()).collect()
     }
 
+    pub fn running_info(&self) -> Vec<RunningInfo> {
+        self.active
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .map(|t| RunningInfo { game_id: t.game_id.clone(), title: t.title.clone(), started_at: Some(t.launched_wall.timestamp()) })
+            .collect()
+    }
+
+    /// Arrêt manuel du suivi : implémenté avec E1.
+    pub fn stop_tracking(&self, _state: &AppState, _emit: &Emitter, game_id: &str) {
+        log::info!("arrêt du suivi demandé pour {game_id}");
+    }
+
     /// Démarre le suivi d'un jeu qui vient d'être lancé : la session est écrite tout de suite (§6.3).
     pub fn start(&self, state: &AppState, emit: &Emitter, g: &GameSource, launcher_mediated: bool) {
         let Some(watch) = Watch::for_source(g) else {
@@ -164,7 +188,9 @@ impl Tracker {
             log::error!("suivi : création de la session impossible : {e}");
             return;
         }
+        let title = state.conn().query_row("SELECT title FROM games WHERE id = ?1", params![g.game_id], |r| r.get(0)).unwrap_or_default();
         active.push(Tracked {
+            title,
             game_id: g.game_id.clone(),
             source_id: g.id.clone(),
             session_id,

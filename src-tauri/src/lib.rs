@@ -19,16 +19,85 @@ pub mod steam_api;
 pub mod sync;
 pub mod system;
 pub mod tracker;
+pub mod tray;
 pub mod vdf;
 
 use state::{AppState, Shared};
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
+
+/// Affiche la fenêtre principale ; elle est recréée si elle avait été fermée vers la zone de notification.
+pub fn show_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    // La création d'une fenêtre ne doit pas se faire depuis un gestionnaire d'événement du fil principal.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        if let Err(e) = build_main_window(&app) {
+            log::warn!("ouverture de la fenêtre : {e}");
+        }
+    });
+}
+
+fn build_main_window(app: &AppHandle) -> tauri::Result<()> {
+    let Some(config) = app.config().app.windows.first().cloned() else { return Ok(()) };
+    if app.get_webview_window(&config.label).is_some() {
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::from_config(app, &config)?.build()?;
+    Ok(())
+}
+
+/// Notification Windows ; un échec (notifications désactivées) est sans conséquence.
+pub fn notify(app: &AppHandle, title: &str, body: &str) {
+    use tauri_plugin_notification::NotificationExt;
+    if let Err(e) = app.notification().builder().title(title).body(body).show() {
+        log::info!("notification non affichée : {e}");
+    }
+}
+
+/// Seul « Quitter » arrête vraiment l'application (E3-03).
+pub fn quit(app: &AppHandle) {
+    log::info!("arrêt demandé");
+    app.exit(0);
+}
+
+/// Clic sur la croix : par défaut la fenêtre se ferme (la vue web est déchargée, E3-08) et l'application
+/// continue dans la zone de notification.
+fn on_close_requested(app: &AppHandle) {
+    let state = app.state::<Shared>();
+    let (quits, noticed) = {
+        let conn = state.conn();
+        (db::get_setting(&conn, "close_quits").as_deref() == Some("1"), db::get_setting(&conn, "tray_notice_shown").is_some())
+    };
+    if quits {
+        quit(app);
+        return;
+    }
+    if !noticed {
+        let _ = db::set_setting(&state.conn(), "tray_notice_shown", "1");
+        notify(app, "GameLauncher continue en arrière-plan", "Le suivi du temps de jeu reste actif. Pour quitter : clic droit sur l'icône près de l'horloge, puis Quitter.");
+    }
+}
 
 pub fn run() {
-    tauri::Builder::default()
+    let autostarted = std::env::args().any(|a| a == system::AUTOSTART_ARG);
+    let app = tauri::Builder::default()
+        // Instance unique (E3-07) : relancer l'application ramène la fenêtre existante.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
         .plugin(tauri_plugin_dialog::init())
-        .setup(|app| {
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![system::AUTOSTART_ARG])))
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                on_close_requested(window.app_handle());
+            }
+        })
+        .setup(move |app| {
             let data_dir = match std::env::var_os("GAMELAUNCHER_DATA_DIR") {
                 Some(dir) => std::path::PathBuf::from(dir),
                 None => app.path().app_data_dir()?,
@@ -45,9 +114,27 @@ pub fn run() {
                 Ok(None) => {}
                 Err(e) => log::warn!("sauvegarde automatique impossible : {e:#}"),
             }
+            let start_minimized = autostarted && db::get_setting(&conn, "start_minimized").as_deref() != Some("0");
             let state: Shared = Arc::new(AppState::new(conn, data_dir));
             app.manage(state.clone());
             let emit = commands::emitter(app.handle());
+
+            // Zone de notification (E3-01), puis fenêtre, sauf démarrage réduit avec Windows (E3-06).
+            if let Err(e) = tray::create(app.handle()) {
+                log::error!("icône de la zone de notification : {e}");
+            }
+            if start_minimized {
+                log::info!("démarrage réduit dans la zone de notification");
+            } else {
+                build_main_window(app.handle())?;
+            }
+            // Entrée de démarrage d'une version précédente : réécrite avec l'argument `--autostart`.
+            if system::legacy_autostart_entry() {
+                use tauri_plugin_autostart::ManagerExt;
+                if let Err(e) = app.autolaunch().enable() {
+                    log::warn!("mise à jour de l'entrée de démarrage : {e}");
+                }
+            }
 
             // Suivi des heures : un fil qui dort tant qu'aucun jeu n'est lancé.
             {
@@ -119,6 +206,14 @@ pub fn run() {
             commands::merge_games,
             commands::dismiss_merge,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("erreur au démarrage de l'application");
+    app.run(|_app, event| {
+        if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+            // Plus aucune fenêtre : l'application reste active dans la zone de notification.
+            if code.is_none() {
+                api.prevent_exit();
+            }
+        }
+    });
 }

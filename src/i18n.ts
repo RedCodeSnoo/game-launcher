@@ -78,6 +78,7 @@ const fr = {
   "err.LAUNCHER_MISSING": "Le launcher nécessaire est introuvable ou n'est pas installé.",
   "err.FILE_NOT_FOUND": "Fichier introuvable : l'exécutable du jeu a été déplacé ou supprimé.",
   "err.LAUNCH_FAILED": "Le lancement a échoué.",
+  "err.AUTOSTART_FAILED": "Impossible de modifier le démarrage avec Windows.",
   "err.INTERNAL": "Une erreur interne est survenue.",
   "err.DATABASE": "Erreur de base de données.",
   "err.IO": "Erreur de lecture ou d'écriture de fichier.",

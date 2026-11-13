@@ -10,17 +10,23 @@ use crate::{db, metadata, online, providers, secrets, steam_api, sync};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use tauri::{AppHandle, Emitter as _, State};
+use tauri::{AppHandle, Emitter as _, Manager, State};
+
+/// Envoie un événement à l'interface et tient la zone de notification à jour.
+pub fn emit_event(app: &AppHandle, event: &str, payload: serde_json::Value) {
+    let _ = app.emit(event, payload);
+    if matches!(event, "library-updated" | "running-changed" | "session-heartbeat") {
+        crate::tray::refresh(app);
+    }
+}
 
 pub fn emitter(app: &AppHandle) -> Emitter {
     let app = app.clone();
-    std::sync::Arc::new(move |event: &str, payload: serde_json::Value| {
-        let _ = app.emit(event, payload);
-    })
+    std::sync::Arc::new(move |event: &str, payload: serde_json::Value| emit_event(&app, event, payload))
 }
 
 fn notify_library(app: &AppHandle) {
-    let _ = app.emit("library-updated", serde_json::Value::Null);
+    emit_event(app, "library-updated", serde_json::Value::Null);
 }
 
 // ---------------------------------------------------------------------------
@@ -61,12 +67,24 @@ pub fn get_running(state: State<'_, Shared>) -> Vec<String> {
 /// Lance un jeu (F-LAN-01) avec des erreurs explicites (F-LAN-02), puis démarre le suivi (F-HEU-02).
 #[tauri::command(async)]
 pub fn launch_game(app: AppHandle, state: State<'_, Shared>, game_id: String, source_id: Option<String>) -> AppResult<()> {
-    let sources = db::sources_of_game(&state.conn(), &game_id)?;
+    do_launch(&app, state.inner(), &game_id, source_id.as_deref())?;
+    // Option « réduire au lancement » : la fenêtre est fermée, l'application reste dans la zone de notification.
+    if db::get_setting(&state.conn(), "minimize_on_launch").as_deref() == Some("1") {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.destroy();
+        }
+    }
+    Ok(())
+}
+
+/// Lancement partagé par l'interface et le menu de la zone de notification.
+pub fn do_launch(app: &AppHandle, state: &Shared, game_id: &str, source_id: Option<&str>) -> AppResult<()> {
+    let sources = db::sources_of_game(&state.conn(), game_id)?;
     let chosen = match source_id {
         Some(id) => sources.iter().find(|s| s.id == id),
         None => sources.iter().find(|s| s.installed && s.available).or_else(|| sources.iter().find(|s| s.installed)).or(sources.first()),
     }
-    .ok_or_else(|| AppError::new("GAME_NOT_FOUND", game_id.clone()))?
+    .ok_or_else(|| AppError::new("GAME_NOT_FOUND", game_id.to_string()))?
     .clone();
     if !chosen.installed {
         return Err(AppError::new("NOT_INSTALLED", ""));
@@ -85,7 +103,7 @@ pub fn launch_game(app: AppHandle, state: State<'_, Shared>, game_id: String, so
         None => crate::launch::launch_source(&chosen)?,
     }
     log::info!("lancement de {} ({})", chosen.external_id, chosen.source.as_str());
-    state.tracker.start(&state, &emitter(&app), &chosen, chosen.launch_method != LaunchMethod::Exe);
+    state.tracker.start(state, &emitter(app), &chosen, chosen.launch_method != LaunchMethod::Exe);
     Ok(())
 }
 
@@ -567,7 +585,17 @@ pub fn set_source_enabled(app: AppHandle, state: State<'_, Shared>, source: Sour
 }
 
 /// Réglages d'interface modifiables depuis le front (liste fermée : pas d'écriture arbitraire dans la base).
-const UI_SETTINGS: &[&str] = &["theme", "view", "sort", "sort_desc", "wizard_done", "minimize_on_launch", "reveal_hidden_achievements"];
+const UI_SETTINGS: &[&str] = &[
+    "theme",
+    "view",
+    "sort",
+    "sort_desc",
+    "wizard_done",
+    "minimize_on_launch",
+    "reveal_hidden_achievements",
+    "close_quits",
+    "start_minimized",
+];
 
 #[tauri::command(async)]
 pub fn get_settings(state: State<'_, Shared>) -> std::collections::HashMap<String, String> {
@@ -584,14 +612,20 @@ pub fn set_setting(state: State<'_, Shared>, key: String, value: String) -> AppR
     Ok(())
 }
 
-#[tauri::command]
-pub fn get_autostart() -> bool {
-    crate::system::autostart_enabled()
+/// Démarrage avec Windows (E3-05), géré par `tauri-plugin-autostart` : entrée de l'utilisateur, sans droits administrateur.
+#[tauri::command(async)]
+pub fn get_autostart(app: AppHandle) -> bool {
+    use tauri_plugin_autostart::ManagerExt;
+    app.autolaunch().is_enabled().unwrap_or(false)
 }
 
 #[tauri::command(async)]
-pub fn set_autostart(enabled: bool) -> AppResult<()> {
-    crate::system::set_autostart(enabled)?;
+pub fn set_autostart(app: AppHandle, enabled: bool) -> AppResult<()> {
+    use tauri_plugin_autostart::ManagerExt;
+    let launcher = app.autolaunch();
+    let result = if enabled { launcher.enable() } else { launcher.disable() };
+    result.map_err(|e| AppError::new("AUTOSTART_FAILED", e.to_string()))?;
+    log::info!("démarrage avec Windows : {}", if enabled { "activé" } else { "désactivé" });
     Ok(())
 }
 
