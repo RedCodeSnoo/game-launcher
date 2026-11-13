@@ -1,7 +1,7 @@
 // Passerelle vers le backend. Hors Tauri (navigateur, `npm run dev`), un backend simulé prend le relais.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Accounts, Achievement, Candidate, Game, GamePatch, ScanState, Session, SourcePatch, StoreMatch, WatchedFolder } from "./types";
+import type { Accounts, Achievement, Candidate, Collection, Game, GamePatch, MergeSuggestion, ScanState, Session, SourceId, SourcePatch, SourceStatus, Stats, StoreMatch, WatchedFolder } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -68,6 +68,25 @@ export const api = {
   searchMetadata: (term: string) => call<StoreMatch[]>("search_metadata", { term }),
   applyMetadata: (gameId: string, appid: number) => call<void>("apply_metadata", { gameId, appid }),
   setCover: (gameId: string, path?: string) => call<void>("set_cover", { gameId, path }),
+  getStats: () => call<Stats>("get_stats"),
+  getSources: () => call<SourceStatus[]>("get_sources"),
+  setSourceEnabled: (source: SourceId, enabled: boolean) => call<void>("set_source_enabled", { source, enabled }),
+  getSettings: () => call<Record<string, string>>("get_settings"),
+  setSetting: (key: string, value: string) => call<void>("set_setting", { key, value }),
+  getAutostart: () => call<boolean>("get_autostart"),
+  setAutostart: (enabled: boolean) => call<void>("set_autostart", { enabled }),
+  exportBackup: (path: string) => call<void>("export_backup", { path }),
+  importBackup: (path: string) => call<void>("import_backup", { path }),
+  getLogs: () => call<string>("get_logs"),
+  openDataFolder: (sub?: "logs" | "backups") => call<void>("open_data_folder", { sub }),
+  getCollections: () => call<Collection[]>("get_collections"),
+  createCollection: (name: string) => call<string>("create_collection", { name }),
+  renameCollection: (id: string, name: string) => call<void>("rename_collection", { id, name }),
+  deleteCollection: (id: string) => call<void>("delete_collection", { id }),
+  setGameCollection: (gameId: string, collectionId: string, member: boolean) => call<void>("set_game_collection", { gameId, collectionId, member }),
+  getMergeSuggestions: () => call<MergeSuggestion[]>("get_merge_suggestions"),
+  mergeGames: (keep: string, others: string[]) => call<void>("merge_games", { keep, others }),
+  dismissMerge: (title: string) => call<void>("dismiss_merge", { title }),
 };
 
 /** Sélecteur de fichier natif (exécutable, image…). */

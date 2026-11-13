@@ -6,7 +6,7 @@
 | V0.2 – Local et heures | ✅ terminé | `v0.2.0` |
 | V0.3 – Steam en ligne | ✅ terminé (API à vérifier avec une vraie clé) | `v0.3.0` |
 | V0.4 – Autres launchers | ✅ terminé | `v0.4.0` |
-| V1.0 – Version complète | ⏳ | |
+| V1.0 – Version complète | ✅ terminé | `v1.0.0` |
 | V1.x | ⏳ | |
 
 ## V0.1 – Socle
@@ -48,3 +48,30 @@
 - Heures : suivi maison ; succès : « Aucun succès ».
 - Vérifié sur cette machine : Fortnite, League of Legends (live et PBE), Teamfight Tactics (live et PBE), VALORANT et World of Warcraft détectés avec leurs chemins et commandes ; 293 jeux Epic possédés ; détection complète des 4 launchers en 9 ms.
 - Tests : 58 tests Rust (+1 de bout en bout), 13 tests front.
+
+## V1.0 – Version complète
+
+- Recherche instantanée (insensible aux accents), filtres (état, source, disque, genre), tris (nom, dernier lancement, temps de jeu, date d'ajout, progression des succès), préférences d'affichage mémorisées.
+- Favoris, Récents, Masqués, collections personnalisées, proposition de fusion des doublons (même titre sur plusieurs sources).
+- Statistiques : temps total, par source, top 10, histogramme par semaine et par mois, succès récents.
+- Disques : surveillance des lecteurs (branchement/débranchement détecté en ~5 s), jeux grisés « Indisponible – disque non connecté », chemins retrouvés par numéro de série si la lettre change.
+- Assistant de premier lancement : launchers détectés, compte Steam, dossiers surveillés.
+- Paramètres : comptes, activation de chaque source, dossiers surveillés, thème clair/sombre, démarrage avec Windows, sauvegarde/restauration, journaux.
+- Sauvegarde : export/restauration de la base, copie automatique quotidienne (7 conservées).
+- Version finale : `npm run tauri build` produit l'exécutable et l'installeur NSIS.
+
+### Critères d'acceptation (§11)
+
+| Critère | État | Vérification |
+|---|---|---|
+| 100 % des jeux installés (Steam, Epic, Riot, Battle.net), disque externe compris | ✅ | Essai réel sur cette machine : 19 Steam (2 disques), 1 Epic, 5 Riot, 1 Battle.net, recoupés avec les fichiers des launchers. Multi-disques testé (`scans_libraries…`). Pas de disque externe branché ici : logique couverte par les tests de `library.rs`. |
+| Chaque jeu installé se lance en un clic | ⚠️ à confirmer | Commandes construites et testées ; lancements réels non exécutés (D17) → `TODO.md`. |
+| Jeu ajouté à la main : lancement + temps à la minute près | ✅ | Test de bout en bout avec un vrai processus (`tracks_a_real_process_end_to_end`). |
+| Scan d'un dossier surveillé sans installeurs ni outils | ✅ | `scan_proposes_games_without_installers`, `excludes_installers_and_tools`. |
+| Clé API Steam : non installés, heures et succès identiques à Steam | ⚠️ à confirmer | Analyseurs testés sur réponses d'exemple ; pas de clé pour un appel réel → `TODO.md`. |
+| « Aucun succès » | ✅ | Interface (fiche jeu, onglet Succès) + `achievements_are_stored_counted_and_replaced`. |
+| Disque débranché : grisé, non supprimé ; rebranché sous une autre lettre : jouable | ✅ | `unplugged_drive_greys_games_without_removing`, `local_exe_follows_drive_letter_change`, `letter_reused_by_another_disk_is_not_confused`. |
+| Sans Internet : bibliothèque, lancement, suivi | ✅ | Aucune de ces fonctions n'utilise le réseau ; les erreurs réseau sont classées `OFFLINE` et ignorées ; visuels Steam lus dans le cache local. |
+| Un module en erreur n'empêche pas les autres | ✅ | Isolation par `catch_unwind` dans `sync.rs` ; `corrupted_file_does_not_hide_other_games`, `scans_libraries_and_survives_corrupted_manifest`. |
+| Démarrage < 2 s, fluide avec 500 jeux | ✅ | Détection des 4 launchers : 9 ms ; 1 000 jeux intégrés et relus en moins de 5 s (`handles_a_thousand_games_quickly`) ; grille virtualisée (27 cartes dans le DOM pour 1 000 jeux). Mesures de la version finale ci-dessous. |
+| Aucune clé ni jeton en clair sur le disque | ✅ | Coffre Windows uniquement (`roundtrip_through_windows_vault`, `backup_never_contains_api_keys`), URL jamais journalisées. |

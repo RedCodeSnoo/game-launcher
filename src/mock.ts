@@ -203,6 +203,82 @@ Object.assign(mockHandlers, {
   set_cover: () => notify(),
 });
 
+let collections = [{ id: "c1", name: "Coop", count: 0 }];
+let sourcesEnabled: Record<string, boolean> = {};
+let autostart = false;
+
+Object.assign(mockHandlers, {
+  get_stats: () => {
+    const visible = mockState.games.filter((g) => !g.hidden);
+    const bySource = new Map<string, { source: string; minutes: number; games: number }>();
+    for (const g of visible) {
+      const s = g.sources[0].source;
+      const e = bySource.get(s) ?? { source: s, minutes: 0, games: 0 };
+      e.minutes += g.playtimeMinutes;
+      e.games += 1;
+      bySource.set(s, e);
+    }
+    const weeks = Array.from({ length: 12 }, (_, i) => ({ start: new Date(Date.now() - (11 - i) * 6.048e8).toISOString().slice(0, 10), seconds: Math.round(Math.abs(Math.sin(i * 1.7)) * 40000) }));
+    const months = Array.from({ length: 12 }, (_, i) => ({ start: new Date(2026, i, 1, 12).toISOString().slice(0, 10), seconds: Math.round(Math.abs(Math.cos(i)) * 150000) }));
+    return {
+      totalMinutes: visible.reduce((n, g) => n + g.playtimeMinutes, 0),
+      trackedSeconds: visible.reduce((n, g) => n + g.trackedSeconds, 0),
+      gamesTotal: visible.length,
+      gamesInstalled: visible.filter((g) => g.installed).length,
+      gamesPlayed: visible.filter((g) => g.playtimeMinutes > 0).length,
+      achievementsUnlocked: visible.reduce((n, g) => n + g.achUnlocked, 0),
+      achievementsTotal: visible.reduce((n, g) => n + g.achTotal, 0),
+      bySource: [...bySource.values()].sort((x, y) => y.minutes - x.minutes),
+      topGames: [...visible].sort((x, y) => y.playtimeMinutes - x.playtimeMinutes).slice(0, 10).map((g) => ({ gameId: g.id, title: g.title, coverPath: null, minutes: g.playtimeMinutes })),
+      weekly: weeks,
+      monthly: months,
+      recentAchievements: visible.filter((g) => g.achUnlocked > 0).slice(0, 6).map((g, i) => ({ gameId: g.id, gameTitle: g.title, name: `Succès n° ${i + 1}`, icon: null, unlockedAt: new Date(Date.now() - i * 2e8).toISOString() })),
+    };
+  },
+  get_sources: () =>
+    (["steam", "local", "epic", "riot", "battlenet", "gog", "ubisoft", "ea", "xbox"] as SourceId[]).map((source) => ({
+      source,
+      available: !["gog", "ea"].includes(source),
+      enabled: sourcesEnabled[source] ?? true,
+      capabilities: { installed: true, owned: source === "steam" || source === "epic", playtime: source === "steam", achievements: source === "steam" },
+      installedGames: mockState.games.filter((g) => g.installed && g.sources[0].source === source).length,
+      totalGames: mockState.games.filter((g) => g.sources[0].source === source).length,
+    })),
+  set_source_enabled: (a: Args) => void (sourcesEnabled = { ...sourcesEnabled, [String(a.source)]: Boolean(a.enabled) }),
+  get_settings: () => mockState.settings,
+  set_setting: (a: Args) => void (mockState.settings = { ...mockState.settings, [String(a.key)]: String(a.value) }),
+  get_autostart: () => autostart,
+  set_autostart: (a: Args) => void (autostart = Boolean(a.enabled)),
+  export_backup: () => undefined,
+  import_backup: () => notify(),
+  get_logs: () => "2026-11-13 15:00:00 [INFO] démarrage (backend simulé)\n2026-11-13 15:00:00 [INFO] steam : 19 jeu(x) installé(s), 0 nouveau(x)",
+  open_data_folder: () => undefined,
+  get_collections: () => collections.map((c) => ({ ...c, count: mockState.games.filter((g) => g.collections.includes(c.id)).length })),
+  create_collection: (a: Args) => {
+    const id = `c${Date.now()}`;
+    collections = [...collections, { id, name: String(a.name), count: 0 }];
+    notify();
+    return id;
+  },
+  rename_collection: (a: Args) => {
+    collections = collections.map((c) => (c.id === a.id ? { ...c, name: String(a.name) } : c));
+    notify();
+  },
+  delete_collection: (a: Args) => {
+    collections = collections.filter((c) => c.id !== a.id);
+    notify();
+  },
+  set_game_collection: (a: Args) => {
+    mockState.games = mockState.games.map((g) =>
+      g.id !== a.gameId ? g : { ...g, collections: a.member ? [...g.collections, String(a.collectionId)] : g.collections.filter((c) => c !== a.collectionId) },
+    );
+    notify();
+  },
+  get_merge_suggestions: () => [],
+  merge_games: () => notify(),
+  dismiss_merge: () => undefined,
+});
+
 export async function mockCall(cmd: string, args: Args): Promise<unknown> {
   const handler = mockHandlers[cmd];
   if (!handler) throw { code: "INTERNAL", detail: `commande simulée absente : ${cmd}` };

@@ -1,33 +1,30 @@
-// Barre latérale : sections de la bibliothèque, sources, pages.
+// Barre latérale : sections de la bibliothèque, sources, collections, pages.
 import type { ReactNode } from "react";
-import { Gamepad2, HardDriveDownload, Library, Settings as SettingsIcon } from "lucide-react";
+import { BarChart3, Clock, EyeOff, FolderHeart, Gamepad2, HardDriveDownload, Heart, Library, Settings as SettingsIcon } from "lucide-react";
 import { SOURCE_COLORS, SOURCE_LABELS, t } from "../i18n";
 import { listSources, type Section } from "../lib/filter";
-import type { Game, SourceId } from "../types";
+import type { Collection, Game, SourceId } from "../types";
 
 export type Page = "library" | "stats" | "settings";
 
 interface Props {
   games: Game[];
+  collections: Collection[];
   page: Page;
   section: Section;
   onSection: (s: Section) => void;
   onPage: (p: Page) => void;
-  extraSections?: ReactNode;
-  footer?: ReactNode;
+  status?: ReactNode;
 }
 
 const SOURCE_ORDER: SourceId[] = ["steam", "epic", "gog", "battlenet", "riot", "ubisoft", "ea", "xbox", "local"];
-
-export function sameSection(a: Section, b: Section): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
-}
 
 export function NavItem({ active, onClick, icon, label, count }: { active: boolean; onClick: () => void; icon: ReactNode; label: string; count?: number }) {
   return (
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      aria-label={count !== undefined ? `${label} (${count})` : label}
       className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition ${
         active ? "bg-accent/20 font-medium text-fg" : "text-muted hover:bg-panel2 hover:text-fg"
       }`}
@@ -39,8 +36,13 @@ export function NavItem({ active, onClick, icon, label, count }: { active: boole
   );
 }
 
-export function Sidebar({ games, page, section, onSection, onPage, extraSections, footer }: Props) {
+function Heading({ children }: { children: ReactNode }) {
+  return <p className="mt-4 px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</p>;
+}
+
+export function Sidebar({ games, collections, page, section, onSection, onPage, status }: Props) {
   const visible = games.filter((g) => !g.hidden);
+  const hiddenCount = games.length - visible.length;
   const sources = listSources(games);
   const isLib = page === "library";
   const go = (s: Section) => {
@@ -53,7 +55,7 @@ export function Sidebar({ games, page, section, onSection, onPage, extraSections
         <Gamepad2 size={22} className="text-accent" />
         <span className="text-base font-semibold">{t("app.name")}</span>
       </div>
-      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2" aria-label="Bibliothèque">
         <NavItem active={isLib && section.kind === "all"} onClick={() => go({ kind: "all" })} icon={<Library size={16} />} label={t("nav.all")} count={visible.length} />
         <NavItem
           active={isLib && section.kind === "installed"}
@@ -62,8 +64,19 @@ export function Sidebar({ games, page, section, onSection, onPage, extraSections
           label={t("nav.installed")}
           count={visible.filter((g) => g.installed).length}
         />
-        {extraSections}
-        {sources.length > 0 && <p className="mt-4 px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{t("nav.sources")}</p>}
+        <NavItem
+          active={isLib && section.kind === "favorites"}
+          onClick={() => go({ kind: "favorites" })}
+          icon={<Heart size={16} />}
+          label={t("nav.favorites")}
+          count={visible.filter((g) => g.favorite).length}
+        />
+        <NavItem active={isLib && section.kind === "recent"} onClick={() => go({ kind: "recent" })} icon={<Clock size={16} />} label={t("nav.recent")} />
+        {hiddenCount > 0 && (
+          <NavItem active={isLib && section.kind === "hidden"} onClick={() => go({ kind: "hidden" })} icon={<EyeOff size={16} />} label={t("nav.hidden")} count={hiddenCount} />
+        )}
+
+        {sources.length > 0 && <Heading>{t("nav.sources")}</Heading>}
         {SOURCE_ORDER.filter((s) => sources.includes(s)).map((s) => (
           <NavItem
             key={s}
@@ -74,9 +87,22 @@ export function Sidebar({ games, page, section, onSection, onPage, extraSections
             count={visible.filter((g) => g.sources.some((x) => x.source === s)).length}
           />
         ))}
+
+        {collections.length > 0 && <Heading>{t("nav.collections")}</Heading>}
+        {collections.map((c) => (
+          <NavItem
+            key={c.id}
+            active={isLib && section.kind === "collection" && section.id === c.id}
+            onClick={() => go({ kind: "collection", id: c.id })}
+            icon={<FolderHeart size={16} />}
+            label={c.name}
+            count={c.count}
+          />
+        ))}
       </nav>
       <div className="flex flex-col gap-0.5 border-t border-line p-2">
-        {footer}
+        {status}
+        <NavItem active={page === "stats"} onClick={() => onPage("stats")} icon={<BarChart3 size={16} />} label={t("nav.stats")} />
         <NavItem active={page === "settings"} onClick={() => onPage("settings")} icon={<SettingsIcon size={16} />} label={t("nav.settings")} />
       </div>
     </aside>

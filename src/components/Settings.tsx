@@ -1,6 +1,13 @@
-// Page Paramètres : une carte par rubrique.
-import type { ReactNode } from "react";
+// Page Paramètres : comptes, sources, dossiers surveillés, apparence, démarrage, sauvegarde, journaux (§8.1).
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { CheckCircle2, CircleSlash, Download, FolderOpen, RefreshCw, Upload } from "lucide-react";
+import { api, pickFile, pickSavePath } from "../api";
+import { errorMessage, SOURCE_LABELS } from "../i18n";
+import type { SourceStatus } from "../types";
 import { SgdbForm, SteamAccountForm } from "./AccountsSection";
+import { WatchedFoldersPanel } from "./AddGameDialog";
+import { useToasts } from "./Toasts";
+import { Button } from "./ui";
 
 export function SettingsCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
@@ -12,18 +19,183 @@ export function SettingsCard({ title, description, children }: { title: string; 
   );
 }
 
-export function Settings({ children }: { children?: ReactNode }) {
+export function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${checked ? "bg-accent" : "bg-line"}`}
+    >
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[1.375rem]" : "left-0.5"}`} />
+    </button>
+  );
+}
+
+function capabilityText(s: SourceStatus): string {
+  const parts = ["jeux installés"];
+  if (s.capabilities.owned) parts.push("non installés");
+  parts.push(s.capabilities.playtime ? "heures de la source" : "heures suivies par l'application");
+  parts.push(s.capabilities.achievements ? "succès" : "pas de succès");
+  return parts.join(" · ");
+}
+
+export function SourcesList({ compact }: { compact?: boolean }) {
+  const toasts = useToasts();
+  const [sources, setSources] = useState<SourceStatus[] | null>(null);
+  const load = useCallback(() => api.getSources().then(setSources).catch((e) => toasts.error(errorMessage(e))), [toasts]);
+  useEffect(() => void load(), [load]);
+
+  if (!sources) return <div className="skeleton h-32 rounded-lg" />;
+  return (
+    <ul className="flex flex-col divide-y divide-line">
+      {sources.map((s) => (
+        <li key={s.source} className="flex items-center gap-3 py-2.5">
+          {s.available ? <CheckCircle2 size={18} className="shrink-0 text-ok" /> : <CircleSlash size={18} className="shrink-0 text-muted" />}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">
+              {SOURCE_LABELS[s.source]}
+              <span className="ml-2 text-xs font-normal text-muted">
+                {s.source === "local" ? `${s.totalGames} jeu(x)` : s.available ? `détecté · ${s.installedGames} installé(s)${s.totalGames > s.installedGames ? ` · ${s.totalGames} au total` : ""}` : "non détecté sur ce PC"}
+              </span>
+            </p>
+            {!compact && <p className="truncate text-xs text-muted">{capabilityText(s)}</p>}
+          </div>
+          <Toggle
+            checked={s.enabled}
+            label={`Activer ${SOURCE_LABELS[s.source]}`}
+            onChange={async (enabled) => {
+              try {
+                await api.setSourceEnabled(s.source, enabled);
+                await load();
+              } catch (e) {
+                toasts.error(errorMessage(e));
+              }
+            }}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function LogsViewer() {
+  const [logs, setLogs] = useState<string | null>(null);
+  const load = useCallback(() => api.getLogs().then(setLogs).catch(() => setLogs("")), []);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <Button onClick={load}>
+          <RefreshCw size={15} /> {logs === null ? "Afficher le journal" : "Recharger"}
+        </Button>
+        <Button onClick={() => void api.openDataFolder("logs")}>
+          <FolderOpen size={15} /> Ouvrir le dossier
+        </Button>
+      </div>
+      {logs !== null && (
+        <pre className="selectable max-h-72 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-bg p-3 font-mono text-xs leading-relaxed text-muted">{logs || "Journal vide."}</pre>
+      )}
+    </div>
+  );
+}
+
+export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme: (t: "dark" | "light") => void }) {
+  const toasts = useToasts();
+  const [autostart, setAutostart] = useState(false);
+  useEffect(() => void api.getAutostart().then(setAutostart).catch(() => {}), []);
+
+  const run = async (action: () => Promise<unknown>, ok: string) => {
+    try {
+      await action();
+      toasts.success(ok);
+    } catch (e) {
+      toasts.error(errorMessage(e));
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-5">
         <h1 className="text-lg font-semibold">Paramètres</h1>
+
         <SettingsCard title="Compte Steam" description="Affiche les jeux possédés non installés, les heures de jeu et les succès.">
           <SteamAccountForm />
         </SettingsCard>
-        <SettingsCard title="Jaquettes – SteamGridDB" description="Les jeux Steam ont leurs visuels sans clé. SteamGridDB complète les autres sources.">
+
+        <SettingsCard title="Jaquettes – SteamGridDB" description="Les jeux Steam et Epic ont leurs visuels sans clé. SteamGridDB complète les autres sources.">
           <SgdbForm />
         </SettingsCard>
-        {children}
+
+        <SettingsCard title="Sources" description="Une source désactivée n'est plus détectée et ses jeux sont masqués ; ses données sont conservées.">
+          <SourcesList />
+        </SettingsCard>
+
+        <SettingsCard title="Dossiers surveillés" description="Pour les jeux sans launcher.">
+          <WatchedFoldersPanel />
+        </SettingsCard>
+
+        <SettingsCard title="Apparence">
+          <div className="flex gap-2">
+            {(["dark", "light"] as const).map((t) => (
+              <Button key={t} variant={theme === t ? "primary" : "secondary"} aria-pressed={theme === t} onClick={() => onTheme(t)}>
+                {t === "dark" ? "Thème sombre" : "Thème clair"}
+              </Button>
+            ))}
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Démarrage">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Lancer GameLauncher au démarrage de Windows</p>
+              <p className="text-xs text-muted">Ajoute une entrée de démarrage pour votre session uniquement, sans droits administrateur.</p>
+            </div>
+            <Toggle
+              checked={autostart}
+              label="Lancer au démarrage de Windows"
+              onChange={async (enabled) => {
+                try {
+                  await api.setAutostart(enabled);
+                  setAutostart(enabled);
+                } catch (e) {
+                  toasts.error(errorMessage(e));
+                }
+              }}
+            />
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Sauvegarde" description="Heures, sessions, favoris, collections et réglages. Les clés API n'y figurent pas. Une copie automatique est faite chaque jour.">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={async () => {
+                const path = await pickSavePath("Sauvegarde GameLauncher", `gamelauncher-${new Date().toISOString().slice(0, 10)}.db`, ["db"]);
+                if (path) await run(() => api.exportBackup(path), "Sauvegarde exportée");
+              }}
+            >
+              <Download size={15} /> Exporter…
+            </Button>
+            <Button
+              onClick={async () => {
+                const path = await pickFile("Sauvegarde GameLauncher", ["db"]);
+                if (!path) return;
+                if (!window.confirm("Restaurer cette sauvegarde ? La bibliothèque actuelle (heures, sessions, collections) sera remplacée.")) return;
+                await run(() => api.importBackup(path), "Sauvegarde restaurée");
+              }}
+            >
+              <Upload size={15} /> Restaurer…
+            </Button>
+            <Button onClick={() => void api.openDataFolder("backups")}>
+              <FolderOpen size={15} /> Copies automatiques
+            </Button>
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Journaux" description="Pour diagnostiquer une source qui ne détecte plus ses jeux.">
+          <LogsViewer />
+        </SettingsCard>
       </div>
     </div>
   );

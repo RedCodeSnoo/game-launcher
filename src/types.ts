@@ -124,6 +124,52 @@ export interface SyncState {
   errors?: SyncError[];
 }
 
+export interface SourceTime {
+  source: SourceId;
+  minutes: number;
+  games: number;
+}
+
+export interface Bucket {
+  start: string;
+  seconds: number;
+}
+
+export interface Stats {
+  totalMinutes: number;
+  trackedSeconds: number;
+  gamesTotal: number;
+  gamesInstalled: number;
+  gamesPlayed: number;
+  achievementsUnlocked: number;
+  achievementsTotal: number;
+  bySource: SourceTime[];
+  topGames: { gameId: string; title: string; coverPath: string | null; minutes: number }[];
+  weekly: Bucket[];
+  monthly: Bucket[];
+  recentAchievements: { gameId: string; gameTitle: string; name: string; icon: string | null; unlockedAt: string }[];
+}
+
+export interface SourceStatus {
+  source: SourceId;
+  available: boolean;
+  enabled: boolean;
+  capabilities: { installed: boolean; owned: boolean; playtime: boolean; achievements: boolean };
+  installedGames: number;
+  totalGames: number;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface MergeSuggestion {
+  title: string;
+  gameIds: string[];
+}
+
 export interface AppError {
   code: string;
   detail: string;

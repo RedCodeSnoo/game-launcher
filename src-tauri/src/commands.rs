@@ -29,7 +29,8 @@ fn notify_library(app: &AppHandle) {
 
 #[tauri::command(async)]
 pub fn get_games(state: State<'_, Shared>) -> AppResult<Vec<GameView>> {
-    Ok(library::list_games(&state.conn())?)
+    let disabled = state.disabled_sources();
+    Ok(library::list_visible_games(&state.conn(), &disabled)?)
 }
 
 /// Relance la détection en arrière-plan (F-DET-04).
@@ -502,5 +503,220 @@ pub fn set_cover(app: AppHandle, state: State<'_, Shared>, game_id: String, path
         }
     }
     notify_library(&app);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Statistiques, sources, réglages (V1.0)
+// ---------------------------------------------------------------------------
+
+#[tauri::command(async)]
+pub fn get_stats(state: State<'_, Shared>) -> AppResult<crate::stats::Stats> {
+    let disabled = state.disabled_sources();
+    Ok(crate::stats::compute(&state.conn(), &disabled)?)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceStatus {
+    pub source: SourceId,
+    /// Launcher détecté sur ce PC (F-DET-01).
+    pub available: bool,
+    pub enabled: bool,
+    pub capabilities: crate::models::Capabilities,
+    pub installed_games: i64,
+    pub total_games: i64,
+}
+
+/// État de chaque source : launcher présent, source activée, nombre de jeux.
+#[tauri::command(async)]
+pub fn get_sources(state: State<'_, Shared>) -> AppResult<Vec<SourceStatus>> {
+    let cfg = state.provider_config();
+    let disabled = state.disabled_sources();
+    let mut out = Vec::new();
+    for provider in providers::all(&cfg) {
+        let source = provider.id();
+        let available = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| provider.is_available())).unwrap_or(false);
+        let (installed_games, total_games): (i64, i64) = state.conn().query_row(
+            "SELECT COALESCE(SUM(installed), 0), COUNT(*) FROM game_sources WHERE source = ?1",
+            params![source.as_str()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        out.push(SourceStatus { source, available, enabled: !disabled.contains(source.as_str()), capabilities: provider.capabilities(), installed_games, total_games });
+    }
+    Ok(out)
+}
+
+/// Active ou désactive une source (F-PAR-02). Les données d'une source désactivée sont conservées mais masquées.
+#[tauri::command(async)]
+pub fn set_source_enabled(app: AppHandle, state: State<'_, Shared>, source: SourceId, enabled: bool) -> AppResult<()> {
+    let mut disabled = state.disabled_sources();
+    if enabled {
+        disabled.remove(source.as_str());
+    } else {
+        disabled.insert(source.as_str().to_string());
+    }
+    let mut list: Vec<String> = disabled.into_iter().collect();
+    list.sort();
+    db::set_setting(&state.conn(), "disabled_sources", &serde_json::to_string(&list).map_err(anyhow::Error::from)?)?;
+    notify_library(&app);
+    if enabled {
+        refresh_library(app, state);
+    }
+    Ok(())
+}
+
+/// Réglages d'interface modifiables depuis le front (liste fermée : pas d'écriture arbitraire dans la base).
+const UI_SETTINGS: &[&str] = &["theme", "view", "sort", "sort_desc", "wizard_done", "minimize_on_launch", "reveal_hidden_achievements"];
+
+#[tauri::command(async)]
+pub fn get_settings(state: State<'_, Shared>) -> std::collections::HashMap<String, String> {
+    let conn = state.conn();
+    UI_SETTINGS.iter().filter_map(|k| db::get_setting(&conn, k).map(|v| (k.to_string(), v))).collect()
+}
+
+#[tauri::command(async)]
+pub fn set_setting(state: State<'_, Shared>, key: String, value: String) -> AppResult<()> {
+    if !UI_SETTINGS.contains(&key.as_str()) {
+        return Err(AppError::new("INTERNAL", format!("réglage inconnu : {key}")));
+    }
+    db::set_setting(&state.conn(), &key, &value)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_autostart() -> bool {
+    crate::system::autostart_enabled()
+}
+
+#[tauri::command(async)]
+pub fn set_autostart(enabled: bool) -> AppResult<()> {
+    crate::system::set_autostart(enabled)?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Sauvegarde et journaux
+// ---------------------------------------------------------------------------
+
+#[tauri::command(async)]
+pub fn export_backup(state: State<'_, Shared>, path: String) -> AppResult<()> {
+    crate::backup::export(&state.conn(), Path::new(&path))?;
+    log::info!("sauvegarde exportée");
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn import_backup(app: AppHandle, state: State<'_, Shared>, path: String) -> AppResult<()> {
+    if !state.tracker.running_games().is_empty() {
+        return Err(AppError::new("BACKUP_WHILE_PLAYING", ""));
+    }
+    crate::backup::import(&mut state.conn(), Path::new(&path))?;
+    log::info!("sauvegarde restaurée");
+    notify_library(&app);
+    refresh_library(app, state);
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn get_logs(state: State<'_, Shared>) -> String {
+    crate::logging::tail(&state.data_dir, 400)
+}
+
+/// Ouvre le dossier des données (base, images, journaux, sauvegardes automatiques).
+#[tauri::command(async)]
+pub fn open_data_folder(state: State<'_, Shared>, sub: Option<String>) -> AppResult<()> {
+    let dir = match sub.as_deref() {
+        Some("logs") => state.data_dir.join("logs"),
+        Some("backups") => crate::backup::backups_dir(&state.data_dir),
+        _ => state.data_dir.clone(),
+    };
+    crate::launch::shell_open(&dir.to_string_lossy(), None, None)?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Collections (F-NAV-06) et fusion de doublons (§5.2)
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionView {
+    pub id: String,
+    pub name: String,
+    pub count: i64,
+}
+
+#[tauri::command(async)]
+pub fn get_collections(state: State<'_, Shared>) -> AppResult<Vec<CollectionView>> {
+    let conn = state.conn();
+    let mut stmt = conn.prepare(
+        "SELECT c.id, c.name, (SELECT COUNT(*) FROM collection_games cg JOIN games g ON g.id = cg.game_id WHERE cg.collection_id = c.id AND g.hidden = 0)
+         FROM collections c ORDER BY c.name COLLATE NOCASE",
+    )?;
+    let rows = stmt.query_map([], |r| Ok(CollectionView { id: r.get(0)?, name: r.get(1)?, count: r.get(2)? }))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+fn clean_name(name: &str) -> AppResult<String> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 60 {
+        return Err(AppError::new("BAD_NAME", name));
+    }
+    Ok(name.to_string())
+}
+
+#[tauri::command(async)]
+pub fn create_collection(app: AppHandle, state: State<'_, Shared>, name: String) -> AppResult<String> {
+    let name = clean_name(&name)?;
+    let id = db::new_id();
+    state.conn().execute("INSERT INTO collections(id, name) VALUES(?1, ?2)", params![id, name]).map_err(|_| AppError::new("NAME_TAKEN", name.clone()))?;
+    notify_library(&app);
+    Ok(id)
+}
+
+#[tauri::command(async)]
+pub fn rename_collection(app: AppHandle, state: State<'_, Shared>, id: String, name: String) -> AppResult<()> {
+    let name = clean_name(&name)?;
+    state.conn().execute("UPDATE collections SET name = ?2 WHERE id = ?1", params![id, name]).map_err(|_| AppError::new("NAME_TAKEN", name.clone()))?;
+    notify_library(&app);
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn delete_collection(app: AppHandle, state: State<'_, Shared>, id: String) -> AppResult<()> {
+    state.conn().execute("DELETE FROM collections WHERE id = ?1", params![id])?;
+    notify_library(&app);
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn set_game_collection(app: AppHandle, state: State<'_, Shared>, game_id: String, collection_id: String, member: bool) -> AppResult<()> {
+    let conn = state.conn();
+    if member {
+        conn.execute("INSERT OR IGNORE INTO collection_games(collection_id, game_id) VALUES(?1, ?2)", params![collection_id, game_id])?;
+    } else {
+        conn.execute("DELETE FROM collection_games WHERE collection_id = ?1 AND game_id = ?2", params![collection_id, game_id])?;
+    }
+    drop(conn);
+    notify_library(&app);
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn get_merge_suggestions(state: State<'_, Shared>) -> AppResult<Vec<library::MergeSuggestion>> {
+    Ok(library::merge_suggestions(&state.conn())?)
+}
+
+#[tauri::command(async)]
+pub fn merge_games(app: AppHandle, state: State<'_, Shared>, keep: String, others: Vec<String>) -> AppResult<()> {
+    library::merge_games(&mut state.conn(), &keep, &others)?;
+    notify_library(&app);
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn dismiss_merge(state: State<'_, Shared>, title: String) -> AppResult<()> {
+    library::dismiss_merge(&state.conn(), &title)?;
     Ok(())
 }

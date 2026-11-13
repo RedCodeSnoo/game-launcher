@@ -80,3 +80,23 @@ Le cahier des charges cite `OSI` pour Diablo IV ; d'après les codes connus, `OS
 ## D17 – Lancements réels non exécutés pendant le développement
 
 Les commandes de lancement sont construites et testées, mais aucun jeu réel n'a été démarré sur cette machine pendant le développement (ouvrir Steam, Riot ou Battle.net et lancer des jeux sans personne devant l'écran serait intrusif). Le lancement d'un exécutable et son suivi sont couverts par un test de bout en bout avec un processus réel.
+
+## D18 – Sources désactivées
+
+Désactiver une source arrête sa détection et masque ses jeux, sans rien supprimer : la réactiver les fait réapparaître avec leurs heures.
+
+## D19 – Sauvegarde
+
+La sauvegarde est une copie de la base SQLite (`VACUUM INTO`). Les images n'y sont pas (elles se récupèrent à nouveau), ni les clés API (coffre Windows). La restauration refuse tout fichier qui n'est pas une base du launcher et est bloquée pendant qu'un jeu tourne.
+
+## D20 – Statistiques datées
+
+Les graphiques par semaine et par mois reposent sur les sessions suivies par l'application : les heures importées d'une source (Steam, GOG) sont un cumul sans date. Les totaux, le top 10 et le temps par source utilisent la règle du §5.2 (temps de la source s'il existe, sinon sessions).
+
+## D21 – Collections dès la V1.0
+
+Les collections étaient prévues en V2+ ; le schéma et le filtre existant déjà, elles ont été ajoutées en V1.0 (créer, renommer, supprimer, cocher depuis la fiche d'un jeu).
+
+## D22 – Surveillance des disques
+
+Interrogation de `GetLogicalDrives` et des numéros de série toutes les 5 s (coût négligeable) plutôt qu'un abonnement aux messages `WM_DEVICECHANGE`, qui demande une fenêtre dédiée.

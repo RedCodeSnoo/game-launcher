@@ -508,12 +508,37 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
     Ok(games)
 }
 
+/// Bibliothèque sans les sources désactivées par l'utilisateur (F-PAR-02).
+pub fn list_visible_games(conn: &Connection, disabled: &HashSet<String>) -> Result<Vec<GameView>> {
+    let mut games = list_games(conn)?;
+    if disabled.is_empty() {
+        return Ok(games);
+    }
+    for g in &mut games {
+        g.sources.retain(|s| !disabled.contains(s.source.source.as_str()));
+        g.installed = g.sources.iter().any(|v| v.source.installed);
+        g.available = g.sources.iter().any(|v| v.source.installed && v.source.available) || !g.installed;
+    }
+    games.retain(|g| !g.sources.is_empty());
+    Ok(games)
+}
+
 /// Paires de jeux au même titre normalisé sur des sources différentes (§5.2 : proposer de fusionner).
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MergeSuggestion {
     pub title: String,
     pub game_ids: Vec<String>,
+}
+
+/// Ne plus proposer la fusion des jeux portant ce titre.
+pub fn dismiss_merge(conn: &Connection, title: &str) -> Result<()> {
+    let mut list: Vec<String> = db::get_setting(conn, "merge_dismissed").and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default();
+    let key = normalize_title(title);
+    if !list.contains(&key) {
+        list.push(key);
+    }
+    db::set_setting(conn, "merge_dismissed", &serde_json::to_string(&list)?)
 }
 
 pub fn merge_suggestions(conn: &Connection) -> Result<Vec<MergeSuggestion>> {
@@ -760,6 +785,32 @@ mod tests {
         assert_eq!((game.ach_total, game.ach_unlocked), (2, 2));
         store_achievements(&mut conn, &sid, None).unwrap();
         assert!(list_achievements(&conn, &game.id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn handles_a_thousand_games_quickly() {
+        let mut conn = db::open_in_memory().unwrap();
+        let d = drives(&[('C', "AAAA")]);
+        let games: Vec<DetectedGame> = (0..1000).map(|i| steam_game(&i.to_string(), &format!("Jeu {i}"), &format!("C:\\Steam\\common\\Jeu{i}"))).collect();
+        let started = std::time::Instant::now();
+        apply_scan(&mut conn, SourceId::Steam, &games, &d).unwrap();
+        apply_scan(&mut conn, SourceId::Steam, &games, &d).unwrap();
+        refresh_availability(&mut conn, &d).unwrap();
+        let listed = list_games(&conn).unwrap();
+        assert_eq!(listed.len(), 1000);
+        assert!(started.elapsed().as_secs() < 5, "1 000 jeux intégrés et relus en {:?}", started.elapsed());
+    }
+
+    #[test]
+    fn disabled_sources_are_hidden() {
+        let mut conn = db::open_in_memory().unwrap();
+        let d = drives(&[('C', "AAAA")]);
+        apply_scan(&mut conn, SourceId::Steam, &[steam_game("10", "Alpha", "C:\\Steam\\common\\Alpha")], &d).unwrap();
+        apply_scan(&mut conn, SourceId::Local, &[local_game("C:\\Jeux\\Foo", "C:\\Jeux\\Foo\\foo.exe", "Foo")], &d).unwrap();
+        let disabled: HashSet<String> = ["steam".to_string()].into_iter().collect();
+        let visible = list_visible_games(&conn, &disabled).unwrap();
+        assert_eq!(visible.iter().map(|g| g.title.as_str()).collect::<Vec<_>>(), vec!["Foo"]);
+        assert_eq!(list_visible_games(&conn, &HashSet::new()).unwrap().len(), 2);
     }
 
     #[test]
