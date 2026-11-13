@@ -23,6 +23,8 @@ pub const POLL_SECS: u64 = 3;
 /// Délai laissé à un jeu lancé depuis l'application pour apparaître (launcher intermédiaire, mise à jour…).
 pub const START_GRACE_DIRECT_SECS: i64 = 60;
 pub const START_GRACE_LAUNCHER_SECS: i64 = 180;
+/// Une session ouverte depuis moins longtemps que cela au moment du clic sur « Jouer » vient de ce clic.
+const JUST_LAUNCHED_SECS: i64 = 15;
 /// Délai avant de clore la session quand plus aucun processus du jeu ne tourne (changement de processus).
 pub const END_GRACE_SECS: i64 = 10;
 /// Battement : la session en cours est enregistrée en base toutes les 60 s (E4-09).
@@ -357,7 +359,12 @@ impl Tracker {
         let ids = {
             let mut inner = self.lock();
             inner.muted.remove(&g.id);
-            if inner.live.iter().any(|l| l.source_id == g.id) {
+            if let Some(l) = inner.live.iter().find(|l| l.source_id == g.id) {
+                // L'observation a pu voir le processus avant que ce lancement soit enregistré : la session
+                // toute récente est bien « lancée depuis l'app ». Une partie déjà en cours reste telle quelle.
+                if now - l.started <= JUST_LAUNCHED_SECS {
+                    let _ = state.conn().execute("UPDATE play_sessions SET origin = 'app' WHERE id = ?1", params![l.session_id]);
+                }
                 return;
             }
             let grace = if launcher_mediated { START_GRACE_LAUNCHER_SECS } else { START_GRACE_DIRECT_SECS };
@@ -751,6 +758,28 @@ mod tests {
         let all = sessions(&state);
         assert_eq!(all.len(), 1, "une seule session pour plusieurs processus et deux clics");
         assert_eq!((all[0].1, all[0].2, all[0].3.as_str()), (123, false, "app"));
+    }
+
+    #[test]
+    fn process_seen_just_before_the_launch_is_registered_still_counts_as_app() {
+        let (state, tracker, source_id) = setup();
+        let source = crate::db::get_source(&state.conn(), &source_id).unwrap().unwrap();
+        let emit: Emitter = Arc::new(|_, _| {});
+        let now = Utc::now().timestamp();
+        let game = [proc(10, "D:\\Jeux\\Foo\\Foo.exe")];
+        // L'observation tombe entre la création du processus et l'enregistrement du lancement.
+        tracker.tick(&state, &game, now);
+        assert_eq!(sessions(&state)[0].3, "detected");
+        tracker.start(&state, &emit, &source, false);
+        assert_eq!(sessions(&state)[0].3, "app");
+        assert_eq!(sessions(&state).len(), 1);
+
+        // En revanche, cliquer sur Jouer pendant une partie détectée depuis longtemps ne change pas son origine.
+        let (state, tracker, source_id) = setup();
+        let source = crate::db::get_source(&state.conn(), &source_id).unwrap().unwrap();
+        run(&tracker, &state, &game, now - 600, now);
+        tracker.start(&state, &emit, &source, false);
+        assert_eq!(sessions(&state)[0].3, "detected");
     }
 
     #[test]

@@ -13,14 +13,24 @@
 - **Mémoire au repos** : le processus principal occupe ~40 Mo et consomme ~0,2 % d'un cœur au repos (47 ms de CPU sur 20 s) ; la part des processus WebView2 n'a pas pu être isolée des autres applications WebView2 ouvertes sur la machine. L'objectif de 150 Mo au total reste à mesurer dans le Gestionnaire des tâches.
 - **Interface dans la fenêtre native** : l'interface a été vérifiée dans un navigateur avec un backend simulé (y compris avec 1 000 jeux) ; l'application finale a été démarrée et ses journaux contrôlés, mais sa fenêtre n'a pas été inspectée visuellement.
 
+### Évolutions V1.1 (E1 à E4)
+
+- **Menu et icône de la zone de notification** : l'icône est créée et l'application reste active fenêtre fermée (vérifié), mais le menu (Jeux récents, Jeu en cours, Quitter), le clic gauche et le point vert n'ont pas pu être regardés à l'écran. À essayer : clic droit sur l'icône près de l'horloge.
+- **Détection de vrais jeux lancés hors de l'application** : vérifiée avec un faux jeu réel (vrais processus), pas avec Steam, Riot ou Battle.net. À essayer : lancer un jeu depuis Steam, GameLauncher étant dans la zone de notification, puis regarder l'onglet Sessions (origine « Détectée »).
+- **Jeux protégés par un anti-triche** (VALORANT, etc.) : si le chemin du processus est illisible, le jeu est reconnu par son nom d'exécutable (testé avec un processus simulé seulement).
+- **Jeux dont le vrai processus tourne hors de leur dossier** : Minecraft Launcher (le jeu Java tourne depuis `%APPDATA%\.minecraft`) ne sera pas détecté tel quel. Contournement : fiche jeu > Paramètres du jeu > Dossier d'installation.
+- **Démarrage avec Windows après un vrai redémarrage** : l'entrée de démarrage est bien écrite et retirée, et le démarrage réduit fonctionne avec l'argument `--autostart` ; le redémarrage du PC lui-même n'a pas été fait.
+- **Notifications Windows** (première fermeture, « Session détectée ») : envoyées sans erreur, mais leur affichage n'a pas été vu.
+- **« Forcer la fermeture » sur un jeu protégé** : le cas d'échec (droits insuffisants, anti-triche) affiche un message et propose d'arrêter le suivi ; il n'a été vérifié que dans l'interface simulée.
+- **Processus « suspendus »** (piste d'E1-05) : non distingués des processus actifs ; aucun cas réel observé. « Arrêter le suivi » couvre ce cas.
+- **Teamfight Tactics** : son exécutable de partie n'est pas connu avec certitude ; s'il se joue par `League of Legends.exe`, ses parties seront comptées sur League of Legends.
+
 ## Non fait
 
 - **IGDB** (F-MET-02) : non intégré, car il exige un compte développeur Twitch (identifiant + secret). La description, les genres, le développeur et la date de sortie viennent de la fiche de la boutique Steam (sans clé) et du catalogue Epic. Voir `DECISIONS.md` D11.
 - **Epic : heures et succès en ligne** (API non officielle de Legendary/Heroic) : non fait. Elle exige une connexion OAuth interactive au compte Epic, impossible à tester sans l'utilisateur, et son usage peut être contraire aux CGU (§10). Les jeux Epic possédés et leurs visuels viennent du cache local du launcher ; les heures viennent du suivi maison.
 - **Succès GOG** (API GOG avec connexion au compte), **API non officielles Ubisoft et Xbox (OpenXBL)** : non faits, pour les mêmes raisons. Ces sources affichent « Aucun succès ».
 - **Détection par les raccourcis du Bureau et du menu Démarrer** (F-LOC-06, « Could ») : non fait.
-- **Réduction dans la zone de notification** (F-LAN-04, « Could ») : l'option existante réduit la fenêtre dans la barre des tâches, pas dans la zone de notification.
-- **Surveillance permanente des jeux lancés hors de l'application** (§10) : non fait ; seules les sessions lancées depuis GameLauncher sont suivies.
 - **Icônes des succès hors ligne** : elles sont chargées depuis le CDN Steam par la vue web (et conservées par son cache HTTP), pas copiées dans le cache d'images de l'application.
 - **Signature du code** de l'installeur (utile seulement en cas de diffusion publique).
 - **V2+** : mode manette « Big Picture », émulateurs, synchronisation entre PC.

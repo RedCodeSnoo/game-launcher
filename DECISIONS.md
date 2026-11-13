@@ -112,3 +112,65 @@ GOG : l'exécutable direct fonctionne sans Galaxy (jeux sans DRM). EA : l'exécu
 ## D25 – Réduction de la fenêtre
 
 F-LAN-04 demande une réduction dans la zone de notification. La version livrée réduit la fenêtre dans la barre des tâches (aucune icône de zone de notification à gérer) ; la différence est notée dans `TODO.md`.
+
+---
+
+# Évolutions V1.1 (`evolutions-v1.1.md`)
+
+## D26 – Version et tag
+
+Le tag demandé est `v1.1`. Comme `v1.1.0` désignait déjà la livraison précédente (providers GOG, Ubisoft, EA, Xbox), l'application passe en version **1.1.1** et le tag `v1.1` pointe sur cette livraison.
+
+## D27 – Cause des sessions restées « En cours » (E1-05)
+
+Constat dans le code et sur la machine de développement : une session ne se fermait que lorsque **plus aucun processus ne tournait dans le dossier du jeu**. Tout processus annexe qui survit au jeu la maintenait donc ouverte : `crashpad_handler.exe`, `EpicWebHelper.exe` et `CheckEnv.exe` dans le dossier de Phantom Blade Zero, `LeagueClient*.exe` dans celui de League of Legends, `wallpaper32.exe` (permanent) dans celui de Wallpaper Engine. Deuxième cause : l'état du suivi n'existait qu'en mémoire, donc une session n'était jamais reprise après un redémarrage de l'application.
+
+Correction de la cause, pas du symptôme : un processus n'appartient à un jeu que s'il est son exécutable principal, ou s'il est dans son dossier **et** absent de la liste d'exclusion (E1-07, `procs.rs`). Les processus exclus ne peuvent ni ouvrir ni maintenir une session. Les coquilles de processus terminés (aucun fil d'exécution) sont ignorées. Les processus « suspendus » ne sont pas distingués : aucun cas réel n'a été observé, et l'arrêt manuel (E1-01) couvre ce cas.
+
+## D28 – Méthode de détection des processus (E4-03)
+
+Interrogation périodique toutes les **3 s** par `CreateToolhelp32Snapshot` (un appel système, aucun droit particulier), puis `QueryFullProcessImageNameW` et `GetProcessTimes` avec le droit minimal `PROCESS_QUERY_LIMITED_INFORMATION`, **une seule fois par processus** à son apparition (cache par identifiant de processus).
+
+- Préféré à `sysinfo` (retiré du projet) : `sysinfo` rouvre et relit chaque processus à chaque passage.
+- Préféré aux événements WMI : ils demandent COM, peuvent perdre des événements sous charge, et ne dispensent pas d'un balayage initial (jeu déjà ouvert au démarrage, E4-08).
+- Délai de détection : 3 s au plus (exigence : moins de 10 s).
+
+## D29 – Règles de correspondance processus → jeu (E4)
+
+1. Chemin égal à l'exécutable principal (personnalisé, sinon détecté) : c'est le jeu, même si le nom contient « launcher ».
+2. Sinon, chemin dans le dossier d'installation (personnalisé, sinon détecté) et nom absent de la liste d'exclusion. En cas de dossiers imbriqués, le plus précis l'emporte.
+3. Chemin illisible (jeu en administrateur, anti-triche) : comparaison par nom avec l'exécutable principal connu, complété par un tableau interne (`League of Legends.exe`, `VALORANT-Win64-Shipping.exe`, `Wow.exe`, `Overwatch.exe`, `Diablo IV.exe`…).
+
+`LeagueClient*.exe` est dans la liste d'exclusion : le client de League of Legends n'est pas une partie en cours. Ajouts à la liste demandée : `*crashpad*`, `*WebHelper*`, `BlizzardError.exe`, `BlizzardBrowser.exe`, `WowVoiceProxy.exe`, sous-processus CEF/Qt, installeurs et redistribuables, `wallpaper32/64.exe`. L'utilisateur peut ajouter ses propres motifs (Paramètres > Suivi du temps de jeu) et exclure un jeu entier du suivi (fiche jeu).
+
+## D30 – Règles des sessions (E4)
+
+- Début = heure de création du processus (exacte, y compris pour un jeu déjà ouvert au démarrage), sans jamais chevaucher la session précédente du même jeu.
+- Fin = dernière observation d'un processus du jeu, après un délai de grâce de 10 s (changement de processus).
+- Le seuil de 60 s (réglable) s'applique à toutes les sessions, lancées depuis l'application ou détectées ; un arrêt manuel conserve toujours la session.
+- Un jeu lancé depuis l'application est « En cours » dès le clic, mais sa session n'est créée qu'à l'apparition du processus : plus de session fantôme à supprimer si le jeu ne démarre pas.
+- Un trou de plus de 5 min entre deux observations (mise en veille) clôt les sessions à leur dernière observation ; un jeu encore ouvert au réveil ouvre une nouvelle session.
+- Au démarrage, une session restée « en cours » est **reprise** si son jeu tourne encore et que son dernier battement a moins de 5 min ; sinon elle est close à son dernier battement (E1-06).
+- Si l'observation voit le processus quelques millisecondes avant que le clic sur « Jouer » soit enregistré, la session toute récente (moins de 15 s) est requalifiée « lancée depuis l'app ».
+- « Arrêter le suivi » met le jeu en sourdine tant que ses processus tournent, sinon une nouvelle session s'ouvrirait 3 s plus tard.
+- Avec « Suivre les jeux lancés en dehors de l'application » désactivé, le fil d'observation dort tant qu'aucun jeu lancé depuis l'application n'est suivi.
+
+## D31 – « Forcer la fermeture » (E1-02)
+
+Processus terminés : ceux du jeu, tout ce qui tourne depuis son dossier (y compris les processus annexes), et leurs descendants dont le chemin est illisible ou situé dans le dossier. Un descendant situé ailleurs (un navigateur ouvert par le jeu, par exemple) n'est **pas** terminé : fermer le navigateur de l'utilisateur serait pire que laisser un processus orphelin. Si un processus résiste, la session reste ouverte et l'interface propose « Arrêter le suivi » (E1-03).
+
+## D32 – Fenêtre fermée = vue web déchargée (E3-03, E3-08)
+
+La croix détruit la fenêtre au lieu de la masquer : les processus WebView2 s'arrêtent et il ne reste que le processus principal. La fenêtre est recréée à la demande (clic sur l'icône, « Ouvrir », seconde instance) ; l'état d'affichage (page ouverte) n'est pas conservé. L'option « Réduire au lancement d'un jeu » ferme désormais la fenêtre vers la zone de notification (F-LAN-04, auparavant simple réduction dans la barre des tâches).
+
+## D33 – Démarrage avec Windows (E3-05, E3-06)
+
+`tauri-plugin-autostart` écrit l'entrée de démarrage de l'utilisateur avec l'argument `--autostart`. « Démarrer réduit » ne s'applique qu'à ce démarrage-là : un lancement manuel ouvre toujours la fenêtre. Une entrée créée par la version précédente (sans l'argument) est réécrite au démarrage.
+
+## D34 – Emplacement personnalisé (E2)
+
+- Colonnes séparées `install_path_override`, `executable_path_override`, `launch_mode`, `direct_args`, `direct_working_dir` : la détection n'y écrit jamais.
+- Les arguments du mode « exécutable direct » sont distincts de ceux du launcher (Riot et Battle.net en exigent), pour qu'un retour au launcher d'origine fonctionne sans rien ressaisir.
+- « Exécutable direct » n'est proposé que si un exécutable est connu ; retirer l'exécutable personnalisé d'un jeu sans exécutable détecté repasse au launcher d'origine.
+- Jeu local : l'exécutable d'origine reste la valeur « détectée », l'exécutable choisi ensuite est la valeur personnalisée.
+- Les valeurs personnalisées situées sur un disque externe suivent son changement de lettre.

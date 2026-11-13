@@ -8,6 +8,7 @@
 | V0.4 – Autres launchers | ✅ terminé | `v0.4.0` |
 | V1.0 – Version complète | ✅ terminé | `v1.0.0` |
 | V1.x – GOG, Ubisoft, EA, Xbox | ✅ terminé (Xbox vérifié en réel ; GOG, Ubisoft, EA testés sur données d'exemple seulement) | `v1.1.0` |
+| Évolutions V1.1 – E1 à E4 (application 1.1.1) | ✅ terminé (voir la section en fin de document pour ce qui a été vérifié) | `v1.1` |
 
 ## V0.1 – Socle
 
@@ -89,3 +90,49 @@ Mesures de la version finale sur cette machine : installeur de 3,2 Mo, détectio
 - Vérifié sur cette machine : Xbox détecte Minecraft Launcher (`C:\XboxGames`) avec sa commande `shell:AppsFolder\Microsoft.4297127D64EC6_8wekyb3d8bbwe!Game`. GOG, Ubisoft et EA ne sont pas installés ici : testés sur données d'exemple uniquement.
 - Version finale 1.1.0 : installeur de 3,2 Mo ; au repos, processus principal à ~40 Mo et ~0,2 % d'un cœur ; détection des 5 launchers présents en 23 ms.
 - Tests : 76 tests Rust (+1 de bout en bout), 13 tests front.
+
+## Évolutions V1.1 (E3 → E4 → E1 → E2)
+
+### E3 – Arrière-plan et démarrage avec Windows
+- Icône permanente dans la zone de notification ; clic gauche = ouvrir ; menu : Ouvrir, Jeux récents (5, lançables), Jeu en cours (nom, durée, « Arrêter le suivi »), Quitter. Point vert sur l'icône quand un jeu tourne.
+- La croix ferme la fenêtre sans quitter (vue web déchargée) ; option « La croix ferme complètement l'application » ; notification unique à la première fermeture.
+- Démarrage avec Windows (`tauri-plugin-autostart`), option « Démarrer réduit », instance unique (`tauri-plugin-single-instance`).
+
+### E4 – Jeux lancés en dehors de l'application
+- `ProcessWatcher` : observation toutes les 3 s, index en mémoire des jeux connus, sessions « Détectée » ou « Lancée depuis l'app », jamais en double.
+- Seuil de 60 s réglable, battement chaque minute, coupure après une veille de plus de 5 min, reprise au démarrage, repli sur le nom d'exécutable quand le chemin est illisible, jeux d'un disque débranché gardés dans l'index.
+- Réglages : suivi externe (activé), notification « Session détectée » (désactivée), durée minimale, processus à ignorer ; par jeu : « Ne plus suivre ».
+
+### E1 – Arrêt d'une session
+- Cause des sessions bloquées corrigée (voir `DECISIONS.md` D27) et liste d'exclusion des processus annexes.
+- « Arrêter le suivi » (fiche, carte, liste, zone de notification) ; « Forcer la fermeture du jeu » avec confirmation ; en cas d'échec, message clair et proposition d'arrêter seulement le suivi.
+- Historique : heure de fin modifiable, suppression, colonne Origine.
+
+### E2 – Emplacement personnalisé
+- Fiche jeu > Paramètres du jeu, pour chaque source installée : dossier d'installation, exécutable principal (valeur détectée affichée, « Rétablir la valeur détectée »), méthode de lancement, arguments et dossier de travail.
+- Chemins validés ; avertissement non bloquant si l'exécutable est hors du dossier.
+
+### Tests
+- 102 tests Rust, 13 tests de l'interface (`npm run check`).
+- 3 tests de bout en bout avec de vrais processus (`cargo test -- --ignored` dans `src-tauri`, ~25 s) : un faux jeu lancé **hors de l'application** (chemin en majuscules) est détecté en moins de 10 s et sa session se clôt à son arrêt alors qu'un `UnityCrashHandler64.exe` lui survit ; lancement depuis l'application = une seule session ; « Forcer la fermeture » termine le jeu et son processus enfant.
+- Tests demandés par le document : E1 (processus annexe, arbre de processus), E2 (valeur personnalisée conservée après détection, rétablissement, chemin invalide refusé), E4 (détection externe, session unique, session de moins de 60 s ignorée, casse des chemins).
+
+### Vérification manuelle d'E3 (faite dans l'application réelle, pilotée par son port de débogage)
+L'application finale (1.1.1) a été lancée avec un dossier de données à part et pilotée par le port de débogage de sa vue web. Constaté :
+
+| Vérification | Résultat |
+|---|---|
+| Fermeture par la croix | La fenêtre et la vue web disparaissent, le processus reste actif |
+| Instance unique | Relancer l'exécutable ne crée pas de second processus et rouvre la fenêtre |
+| Option « La croix ferme complètement » | L'application s'arrête |
+| Démarrage avec Windows | L'entrée `Run` de l'utilisateur est écrite avec `--autostart`, puis retirée à la désactivation |
+| Démarrage réduit (`--autostart`) | Aucune fenêtre, processus actif, journal « démarrage réduit » |
+| Arrière-plan (fenêtre fermée, suivi actif) | 42 à 49 Mo de mémoire ; ~0,1 à 0,3 s de CPU par 30 s (moins de 1 % d'un cœur) |
+| Faux jeu lancé hors de l'application (E4) | Détecté en 1 à 2 s, session « Détectée » de 12 s close à l'arrêt du jeu |
+| Bibliothèque réelle (27 jeux installés) | Aucun jeu « En cours » alors que le client Riot et Wallpaper Engine tournaient |
+| Jeu lancé depuis l'application puis fermeture forcée (E1) | Une session « Lancée depuis l'app » ; le processus du jeu est terminé et la session close |
+| E2 | Exécutable inexistant refusé (`FILE_NOT_FOUND`) ; exécutable hors du dossier accepté avec avertissement ; rétablissement de la valeur détectée |
+
+Non vérifié à l'écran : le menu et le point vert de l'icône, l'affichage des notifications, un vrai redémarrage de Windows (voir `TODO.md`).
+
+Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure de fin, emplacement personnalisé, réglages) ont été contrôlés dans un navigateur avec le backend simulé.

@@ -17,10 +17,26 @@ npm run check          # typage, tests de l'interface et tests Rust
 npm run dev            # interface seule dans un navigateur, avec un backend simulé
 ```
 
+## Fonctionnement en arrière-plan
+
+- Fermer la fenêtre laisse GameLauncher actif dans la zone de notification (près de l'horloge) ; pour l'arrêter : clic droit sur l'icône, puis **Quitter**. Une seule instance tourne à la fois.
+- Tant qu'il tourne, GameLauncher enregistre le temps de jeu de tous les jeux de la bibliothèque, même lancés depuis Steam, un raccourci ou un autre launcher (lecture de la liste des processus toutes les 3 s, sans droits administrateur).
+- Paramètres > Arrière-plan et démarrage : démarrage avec Windows, démarrage réduit, comportement de la croix.
+- Paramètres > Suivi du temps de jeu : suivi des jeux lancés hors de l'application, durée minimale d'une session, processus à ignorer.
+- Fiche d'un jeu en cours : « Arrêter le suivi » (clôt la session sans toucher au jeu) et « Forcer la fermeture du jeu ».
+- Fiche d'un jeu > Paramètres du jeu : dossier, exécutable principal et méthode de lancement personnalisés.
+
+Tests de bout en bout du suivi avec de vrais processus (~25 s) :
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml -- --ignored
+```
+
 ## Organisation
 
 - `src/` : interface React (bibliothèque, fiche jeu, statistiques, paramètres)
-- `src-tauri/src/` : cœur Rust (providers, base SQLite, lancement, suivi des heures)
+- `src-tauri/src/` : cœur Rust (providers, base SQLite, lancement) ; `tracker.rs` et `procs.rs` : suivi des heures par observation des processus ; `tray.rs` : zone de notification
+- `evolutions-v1.1.md` : évolutions E1 à E4 (livrées sous le tag `v1.1`)
 - `src-tauri/tests/fixtures/` : fichiers d'exemple pour les tests des parseurs
 - `PROGRESS.md`, `DECISIONS.md`, `TODO.md` : avancement, décisions, reste à faire
 
