@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DiPManifest version="4.0">
+  <buildMetaData>
+    <featureFlags autoUpdateEnabled="1" />
+    <gameVersion version="2.0.11.0" />
+  </buildMetaData>
+  <contentIDs>
+    <contentID>1026023</contentID>
+    <contentID>1026024</contentID>
+  </contentIDs>
+  <gameTitles>
+    <gameTitle locale="en_US">Titanfall 2</gameTitle>
+    <gameTitle locale="fr_FR">Titanfall 2</gameTitle>
+  </gameTitles>
+  <runtime>
+    <launcher uid="1">
+      <name locale="en_US">Titanfall 2</name>
+      <filePath>[HKEY_LOCAL_MACHINE\SOFTWARE\Respawn\Titanfall2\Install Dir]Titanfall2.exe</filePath>
+      <parameters></parameters>
+      <executeElevated>0</executeElevated>
+      <requires64BitOS>1</requires64BitOS>
+      <trial>0</trial>
+    </launcher>
+  </runtime>
+  <touchup>
+    <filePath>[HKEY_LOCAL_MACHINE\SOFTWARE\Respawn\Titanfall2\Install Dir]__Installer\Touchup.exe</filePath>
+  </touchup>
+</DiPManifest>

@@ -7,8 +7,19 @@
 - **Lancement réel de chaque jeu** (Steam, Epic, Riot, Battle.net) : les commandes sont construites selon le §4 mais n'ont pas été exécutées pendant le développement (voir `DECISIONS.md` D17). À essayer : un jeu par source.
 - **Battle.net** : `--exec="launch <CODE>"` ne lance le jeu que si Battle.net est déjà ouvert et connecté ; sinon il ouvre seulement le launcher. Le code de lancement de la variante `wowf` détectée ici (dossier `_forever_`) est supposé être celui de la famille (`WoW`).
 - **Riot** : Teamfight Tactics apparaît comme un produit à part (il possède son propre dossier), alors qu'il se lance en pratique depuis le client League of Legends. À masquer si gênant.
+- **GOG, Ubisoft Connect, EA app, Xbox** : aucun de ces launchers n'est installé sur cette machine. Leurs modules sont testés sur des données d'exemple (registre simulé, base Galaxy de test, `installerdata.xml`, `MicrosoftGame.config`) mais jamais sur une installation réelle. Points les plus incertains : le schéma de la base GOG Galaxy, le lancement EA par URI `origin2://` quand l'exécutable est introuvable, et le nom de famille des paquets Xbox.
+- **Disque externe réel** : la logique (grisé, lettre qui change) est testée avec des lecteurs simulés ; aucun disque externe n'a été branché pendant le développement.
+- **Mémoire au repos** : le processus principal occupe ~43 Mo ; la part des processus WebView2 n'a pas pu être isolée des autres applications WebView2 ouvertes sur la machine. L'objectif de 150 Mo au total reste à mesurer dans le Gestionnaire des tâches.
+- **Interface dans la fenêtre native** : l'interface a été vérifiée dans un navigateur avec un backend simulé (y compris avec 1 000 jeux) ; l'application finale a été démarrée et ses journaux contrôlés, mais sa fenêtre n'a pas été inspectée visuellement.
 
 ## Non fait
 
-- **IGDB** (F-MET-02) : non intégré, car il exige un compte développeur Twitch (identifiant + secret). La description, les genres, le développeur et la date de sortie viennent de la fiche de la boutique Steam (sans clé), y compris pour les jeux locaux associés à une fiche. Voir `DECISIONS.md` D11.
+- **IGDB** (F-MET-02) : non intégré, car il exige un compte développeur Twitch (identifiant + secret). La description, les genres, le développeur et la date de sortie viennent de la fiche de la boutique Steam (sans clé) et du catalogue Epic. Voir `DECISIONS.md` D11.
+- **Epic : heures et succès en ligne** (API non officielle de Legendary/Heroic) : non fait. Elle exige une connexion OAuth interactive au compte Epic, impossible à tester sans l'utilisateur, et son usage peut être contraire aux CGU (§10). Les jeux Epic possédés et leurs visuels viennent du cache local du launcher ; les heures viennent du suivi maison.
+- **Succès GOG** (API GOG avec connexion au compte), **API non officielles Ubisoft et Xbox (OpenXBL)** : non faits, pour les mêmes raisons. Ces sources affichent « Aucun succès ».
+- **Détection par les raccourcis du Bureau et du menu Démarrer** (F-LOC-06, « Could ») : non fait.
+- **Réduction dans la zone de notification** (F-LAN-04, « Could ») : l'option existante réduit la fenêtre dans la barre des tâches, pas dans la zone de notification.
+- **Surveillance permanente des jeux lancés hors de l'application** (§10) : non fait ; seules les sessions lancées depuis GameLauncher sont suivies.
 - **Icônes des succès hors ligne** : elles sont chargées depuis le CDN Steam par la vue web (et conservées par son cache HTTP), pas copiées dans le cache d'images de l'application.
+- **Signature du code** de l'installeur (utile seulement en cas de diffusion publique).
+- **V2+** : mode manette « Big Picture », émulateurs, synchronisation entre PC.

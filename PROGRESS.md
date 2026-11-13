@@ -7,7 +7,7 @@
 | V0.3 – Steam en ligne | ✅ terminé (API à vérifier avec une vraie clé) | `v0.3.0` |
 | V0.4 – Autres launchers | ✅ terminé | `v0.4.0` |
 | V1.0 – Version complète | ✅ terminé | `v1.0.0` |
-| V1.x | ⏳ | |
+| V1.x – GOG, Ubisoft, EA, Xbox | ✅ écrit et testé sur données d'exemple (non vérifié sur de vraies installations) | `v1.1.0` |
 
 ## V0.1 – Socle
 
@@ -75,3 +75,16 @@
 | Un module en erreur n'empêche pas les autres | ✅ | Isolation par `catch_unwind` dans `sync.rs` ; `corrupted_file_does_not_hide_other_games`, `scans_libraries_and_survives_corrupted_manifest`. |
 | Démarrage < 2 s, fluide avec 500 jeux | ✅ | Détection des 4 launchers : 9 ms ; 1 000 jeux intégrés et relus en moins de 5 s (`handles_a_thousand_games_quickly`) ; grille virtualisée (27 cartes dans le DOM pour 1 000 jeux). Mesures de la version finale ci-dessous. |
 | Aucune clé ni jeton en clair sur le disque | ✅ | Coffre Windows uniquement (`roundtrip_through_windows_vault`, `backup_never_contains_api_keys`), URL jamais journalisées. |
+
+Mesures de la version finale sur cette machine : installeur de 3,2 Mo, détection des 4 launchers en 7 ms au démarrage, processus principal à ~43 Mo de mémoire.
+
+## V1.x
+
+- GOG : jeux installés par le registre (DLC exclus), lancement par l'exécutable ; jeux possédés, heures et dernier lancement lus dans la base locale de GOG Galaxy (lecture seule).
+- Ubisoft Connect : registre `Launcher\Installs`, nom depuis la clé de désinstallation, lancement `uplay://launch/<id>/0`.
+- EA app : registre `EA Games`, `installerdata.xml` (identifiant, titre, exécutable), lancement par l'exécutable ou `origin2://`.
+- Xbox / Game Pass : dossiers `XboxGames` de chaque disque (ou dossier indiqué par `.GamingRoot`), `MicrosoftGame.config`, lancement `shell:AppsFolder\<famille>!<AppId>`.
+- Epic « en ligne » : couvert sans API non officielle par le cache local du catalogue (jeux possédés et visuels, livré en V0.4). Heures et succès Epic : non faits (voir `TODO.md`).
+- Option « réduire la fenêtre au lancement d'un jeu ».
+- Aucun de ces quatre launchers n'est installé ici : modules testés sur données d'exemple uniquement.
+- Tests : 76 tests Rust (+1 de bout en bout), 13 tests front.

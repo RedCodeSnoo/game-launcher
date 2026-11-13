@@ -100,3 +100,15 @@ Les collections étaient prévues en V2+ ; le schéma et le filtre existant déj
 ## D22 – Surveillance des disques
 
 Interrogation de `GetLogicalDrives` et des numéros de série toutes les 5 s (coût négligeable) plutôt qu'un abonnement aux messages `WM_DEVICECHANGE`, qui demande une fenêtre dédiée.
+
+## D23 – V1.x : sources locales uniquement
+
+Pour GOG, Ubisoft, EA et Xbox, seules les sources locales et officielles sont utilisées (registre, fichiers de configuration, base de Galaxy en lecture seule). Les API non officielles (Epic, Ubisoft, OpenXBL) et l'API GOG demandent une connexion interactive de l'utilisateur et ne peuvent pas être validées en autonomie : elles restent dans `TODO.md`. Le repli prévu par le cahier des charges s'applique : suivi maison des heures, « Aucun succès ».
+
+## D24 – Lancement GOG et EA par l'exécutable
+
+GOG : l'exécutable direct fonctionne sans Galaxy (jeux sans DRM). EA : l'exécutable du jeu démarre lui-même l'EA app ; l'URI `origin2://` n'est qu'un repli, car `installerdata.xml` fournit un identifiant de contenu et non un identifiant d'offre.
+
+## D25 – Réduction de la fenêtre
+
+F-LAN-04 demande une réduction dans la zone de notification. La version livrée réduit la fenêtre dans la barre des tâches (aucune icône de zone de notification à gérer) ; la différence est notée dans `TODO.md`.

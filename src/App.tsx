@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, WifiOff } from "lucide-react";
-import { api, on, onFileDrop } from "./api";
+import { api, minimizeWindow, on, onFileDrop } from "./api";
 import { AchievementsTab } from "./components/Achievements";
 import { AddGameDialog } from "./components/AddGameDialog";
 import { CollectionActions, CollectionsMenu, MergeBanner } from "./components/Collections";
@@ -149,6 +149,8 @@ function Shell() {
         } else {
           await api.launchGame(game.id);
           toasts.info(`${game.title} : lancement…`);
+          const settings = await api.getSettings().catch(() => ({}) as Record<string, string>);
+          if (settings.minimize_on_launch === "1") void minimizeWindow().catch(() => {});
         }
       } catch (e) {
         toasts.error(`${game.title} : ${errorMessage(e)}`);

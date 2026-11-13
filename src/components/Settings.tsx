@@ -104,7 +104,9 @@ function LogsViewer() {
 export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme: (t: "dark" | "light") => void }) {
   const toasts = useToasts();
   const [autostart, setAutostart] = useState(false);
+  const [minimize, setMinimize] = useState(false);
   useEffect(() => void api.getAutostart().then(setAutostart).catch(() => {}), []);
+  useEffect(() => void api.getSettings().then((s) => setMinimize(s.minimize_on_launch === "1")).catch(() => {}), []);
 
   const run = async (action: () => Promise<unknown>, ok: string) => {
     try {
@@ -143,6 +145,27 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
                 {t === "dark" ? "Thème sombre" : "Thème clair"}
               </Button>
             ))}
+          </div>
+        </SettingsCard>
+
+        <SettingsCard title="Pendant le jeu">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Réduire GameLauncher au lancement d'un jeu</p>
+              <p className="text-xs text-muted">La fenêtre est réduite dans la barre des tâches ; le suivi du temps de jeu continue.</p>
+            </div>
+            <Toggle
+              checked={minimize}
+              label="Réduire GameLauncher au lancement d'un jeu"
+              onChange={async (enabled) => {
+                try {
+                  await api.setSetting("minimize_on_launch", enabled ? "1" : "0");
+                  setMinimize(enabled);
+                } catch (e) {
+                  toasts.error(errorMessage(e));
+                }
+              }}
+            />
           </div>
         </SettingsCard>
 

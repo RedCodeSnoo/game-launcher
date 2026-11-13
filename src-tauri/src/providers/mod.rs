@@ -4,9 +4,13 @@ use crate::models::{Achievement, Capabilities, DetectedGame, GameSource, OwnedGa
 use anyhow::Result;
 
 pub mod battlenet;
+pub mod ea;
 pub mod epic;
+pub mod gog;
 pub mod local;
 pub mod riot;
+pub mod ubisoft;
+pub mod xbox;
 pub mod steam;
 
 pub trait GameProvider: Send + Sync {
@@ -48,6 +52,10 @@ pub fn all(cfg: &ProviderConfig) -> Vec<Box<dyn GameProvider>> {
         Box::new(epic::EpicProvider),
         Box::new(riot::RiotProvider),
         Box::new(battlenet::BattleNetProvider),
+        Box::new(gog::GogProvider),
+        Box::new(ubisoft::UbisoftProvider),
+        Box::new(ea::EaProvider),
+        Box::new(xbox::XboxProvider),
     ]
 }
 
