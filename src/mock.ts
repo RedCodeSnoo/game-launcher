@@ -99,6 +99,71 @@ export const mockHandlers: Record<string, (args: Args) => unknown> = {
   },
 };
 
+const notify = () => mockEmit("library-updated", null);
+const find = (id: unknown) => mockState.games.find((g) => g.id === id);
+let running: string[] = [];
+let folders = [{ id: "w1", path: "D:\Jeux", exists: true }];
+
+Object.assign(mockHandlers, {
+  get_running: () => running,
+  launch_game: (a: Args) => {
+    const g = find(a.gameId);
+    if (g && !g.installed) throw { code: "NOT_INSTALLED", detail: "" };
+    if (g && !g.available) throw { code: "DISK_UNPLUGGED", detail: g.sources[0].installPath ?? "" };
+    running = [...running, String(a.gameId)];
+    mockEmit("running-changed", running);
+    setTimeout(() => {
+      running = running.filter((id) => id !== a.gameId);
+      mockEmit("running-changed", running);
+    }, 6000);
+  },
+  install_game: () => undefined,
+  open_path: () => undefined,
+  add_local_game: (a: Args) => {
+    const exe = String(a.exePath);
+    if (!exe.toLowerCase().endsWith(".exe")) throw { code: "NOT_AN_EXE", detail: exe };
+    const base = mockState.games[0];
+    const id = `g${Date.now()}`;
+    const title = String(a.title ?? exe.split(/[\/]/).pop()?.replace(/\.exe$/i, "") ?? "Jeu");
+    mockState.games = [
+      ...mockState.games,
+      { ...base, id, title, sortTitle: title.toLowerCase(), installed: true, available: true, favorite: false, playtimeMinutes: 0, trackedSeconds: 0, lastPlayed: null, lastSessionSeconds: null, achTotal: 0, achUnlocked: 0, addedAt: new Date().toISOString(), sources: [{ ...base.sources[0], id: `s${id}`, gameId: id, source: "local", installed: true, available: true, executablePath: exe, launchMethod: "exe", launchTarget: exe, sourcePlaytimeMinutes: null, trackedSeconds: 0, drive: exe.slice(0, 2) }] },
+    ];
+    notify();
+  },
+  get_watched_folders: () => folders,
+  add_watched_folder: (a: Args) => void (folders = [...folders, { id: `w${Date.now()}`, path: String(a.path), exists: true }]),
+  remove_watched_folder: (a: Args) => void (folders = folders.filter((f) => f.id !== a.id)),
+  scan_watched_folders: () => [
+    { name: "Hades", folder: "D:\Jeux\Hades", exe: "D:\Jeux\Hades\Hades.exe", size: 52428800, alternatives: [] },
+    { name: "Astro Quest", folder: "D:\Jeux\Astro Quest", exe: "D:\Jeux\Astro Quest\AstroQuest.exe", size: 1048576, alternatives: ["D:\Jeux\Astro Quest\Binaries\Win64\AstroQuest-Win64-Shipping.exe"] },
+    { name: "Portable", folder: null, exe: "D:\Jeux\Portable.exe", size: 7340032, alternatives: [] },
+  ],
+  add_candidates: (a: Args) => (a.candidates as unknown[]).length,
+  ignore_candidates: () => undefined,
+  get_sessions: (a: Args) => {
+    const g = find(a.gameId);
+    if (!g || g.trackedSeconds === 0) return [];
+    return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false }));
+  },
+  delete_session: () => undefined,
+  update_game: (a: Args) => {
+    const patch = a.patch as Record<string, unknown>;
+    mockState.games = mockState.games.map((g) => {
+      if (g.id !== a.gameId) return g;
+      const next = { ...g, ...patch } as Game;
+      if (typeof patch.manualPlaytimeMinutes === "number") next.playtimeMinutes = patch.manualPlaytimeMinutes;
+      return next;
+    });
+    notify();
+  },
+  update_source: () => notify(),
+  remove_game: (a: Args) => {
+    mockState.games = mockState.games.filter((g) => g.id !== a.gameId);
+    notify();
+  },
+});
+
 export async function mockCall(cmd: string, args: Args): Promise<unknown> {
   const handler = mockHandlers[cmd];
   if (!handler) throw { code: "INTERNAL", detail: `commande simulée absente : ${cmd}` };

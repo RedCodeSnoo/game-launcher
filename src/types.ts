@@ -52,6 +52,42 @@ export interface Game {
   collections: string[];
 }
 
+export interface Session {
+  id: string;
+  source: SourceId;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  active: boolean;
+}
+
+export interface WatchedFolder {
+  id: string;
+  path: string;
+  exists: boolean;
+}
+
+export interface Candidate {
+  name: string;
+  folder: string | null;
+  exe: string;
+  size: number;
+  alternatives: string[];
+}
+
+export interface GamePatch {
+  title?: string;
+  favorite?: boolean;
+  hidden?: boolean;
+  manualPlaytimeMinutes?: number | null;
+}
+
+export interface SourcePatch {
+  executablePath?: string;
+  launchArgs?: string;
+  workingDir?: string;
+}
+
 export interface AppError {
   code: string;
   detail: string;

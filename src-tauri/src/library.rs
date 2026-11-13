@@ -94,52 +94,8 @@ pub fn apply_scan(conn: &mut Connection, source: SourceId, detected: &[DetectedG
         if !seen.insert(d.external_id.as_str()) {
             continue;
         }
-        let serial = d.install_path.as_deref().and_then(|p| drives.serial_of_path(p));
-        if let Some(existing) = db::find_source(&tx, source, &d.external_id)? {
-            tx.execute(
-                "UPDATE game_sources SET installed = 1, available = 1, install_path = ?2, install_path_norm = ?3,
-                    volume_serial = COALESCE(?4, volume_serial), executable_path = ?5, launch_method = ?6, launch_target = ?7,
-                    last_played_source = COALESCE(?8, last_played_source)
-                 WHERE id = ?1",
-                params![
-                    existing.id,
-                    d.install_path,
-                    d.install_path.as_deref().map(norm_path),
-                    serial,
-                    d.executable_path,
-                    d.launch_method.as_str(),
-                    d.launch_target,
-                    d.last_played.and_then(unix_to_iso),
-                ],
-            )?;
-            if source != SourceId::Local {
-                tx.execute(
-                    "UPDATE game_sources SET launch_args = ?2, working_dir = ?3 WHERE id = ?1",
-                    params![existing.id, d.launch_args, d.working_dir],
-                )?;
-            }
-            continue;
-        }
-
-        let same_path = match d.install_path.as_deref() {
-            Some(p) => find_by_path(&tx, p, source)?,
-            None => None,
-        };
-        match same_path {
-            // Le jeu avait été ajouté à la main : la source « launcher » le remplace (F-LOC-08).
-            Some(local) if local.source == SourceId::Local => {
-                let new_id = insert_source(&tx, &local.game_id, d, serial)?;
-                tx.execute("UPDATE play_sessions SET game_source_id = ?1 WHERE game_source_id = ?2", params![new_id, local.id])?;
-                tx.execute("DELETE FROM game_sources WHERE id = ?1", params![local.id])?;
-            }
-            Some(other) => {
-                insert_source(&tx, &other.game_id, d, serial)?;
-            }
-            None => {
-                let game_id = insert_game(&tx, &d.title)?;
-                insert_source(&tx, &game_id, d, serial)?;
-                stats.added += 1;
-            }
+        if upsert_detected(&tx, d, drives)? {
+            stats.added += 1;
         }
     }
 
@@ -165,9 +121,65 @@ pub fn apply_scan(conn: &mut Connection, source: SourceId, detected: &[DetectedG
     Ok(stats)
 }
 
+/// Ajoute ou met à jour un jeu détecté. Renvoie vrai si un nouveau jeu a été créé.
+pub fn upsert_detected(tx: &Connection, d: &DetectedGame, drives: &DriveSnapshot) -> Result<bool> {
+    let source = d.source;
+    let mut added = false;
+    {
+        let serial = d.install_path.as_deref().or(d.executable_path.as_deref()).and_then(|p| drives.serial_of_path(p));
+        if let Some(existing) = db::find_source(tx, source, &d.external_id)? {
+            tx.execute(
+                "UPDATE game_sources SET installed = 1, available = 1, install_path = ?2, install_path_norm = ?3,
+                    volume_serial = COALESCE(?4, volume_serial), executable_path = ?5, launch_method = ?6, launch_target = ?7,
+                    last_played_source = COALESCE(?8, last_played_source)
+                 WHERE id = ?1",
+                params![
+                    existing.id,
+                    d.install_path,
+                    d.install_path.as_deref().map(norm_path),
+                    serial,
+                    d.executable_path,
+                    d.launch_method.as_str(),
+                    d.launch_target,
+                    d.last_played.and_then(unix_to_iso),
+                ],
+            )?;
+            if source != SourceId::Local {
+                tx.execute(
+                    "UPDATE game_sources SET launch_args = ?2, working_dir = ?3 WHERE id = ?1",
+                    params![existing.id, d.launch_args, d.working_dir],
+                )?;
+            }
+            return Ok(false);
+        }
+
+        let same_path = match d.install_path.as_deref() {
+            Some(p) => find_by_path(tx, p, source)?,
+            None => None,
+        };
+        match same_path {
+            // Le jeu avait été ajouté à la main : la source « launcher » le remplace (F-LOC-08).
+            Some(local) if local.source == SourceId::Local => {
+                let new_id = insert_source(tx, &local.game_id, d, serial)?;
+                tx.execute("UPDATE play_sessions SET game_source_id = ?1 WHERE game_source_id = ?2", params![new_id, local.id])?;
+                tx.execute("DELETE FROM game_sources WHERE id = ?1", params![local.id])?;
+            }
+            Some(other) => {
+                insert_source(tx, &other.game_id, d, serial)?;
+            }
+            None => {
+                let game_id = insert_game(tx, &d.title)?;
+                insert_source(tx, &game_id, d, serial)?;
+                added = true;
+            }
+        }
+    }
+    Ok(added)
+}
+
 /// Vrai si le disque qui portait ce jeu n'est pas branché.
 fn volume_missing(s: &GameSource, drives: &DriveSnapshot) -> bool {
-    let Some(path) = s.install_path.as_deref() else { return false };
+    let Some(path) = s.install_path.as_deref().or(s.executable_path.as_deref()) else { return false };
     let Some(letter) = drive_letter(path) else { return false };
     match s.volume_serial.as_deref() {
         Some(serial) => drives.letter_for_serial(serial).is_none(),
@@ -206,11 +218,11 @@ pub fn apply_owned(conn: &mut Connection, source: SourceId, owned: &[OwnedGame])
 /// Renvoie le nombre de sources modifiées.
 pub fn refresh_availability(conn: &mut Connection, drives: &DriveSnapshot) -> Result<usize> {
     let tx = conn.transaction()?;
-    let sources: Vec<GameSource> = db::all_sources(&tx)?.into_iter().filter(|s| s.installed && s.install_path.is_some()).collect();
+    let sources: Vec<GameSource> = db::all_sources(&tx)?.into_iter().filter(|s| s.installed && (s.install_path.is_some() || s.executable_path.is_some())).collect();
     let mut changed = 0;
     for s in sources {
-        let path = s.install_path.clone().unwrap_or_default();
-        let Some(letter) = drive_letter(&path) else { continue };
+        let anchor = s.install_path.clone().or_else(|| s.executable_path.clone()).unwrap_or_default();
+        let Some(letter) = drive_letter(&anchor) else { continue };
         let current = drives.serial_of(letter);
         match s.volume_serial.as_deref() {
             Some(serial) if current == Some(serial) => {
@@ -223,7 +235,7 @@ pub fn refresh_availability(conn: &mut Connection, drives: &DriveSnapshot) -> Re
                 Some(new_letter) => {
                     // Même disque, nouvelle lettre : on réécrit les chemins.
                     let fix = |p: &Option<String>| p.as_deref().map(|p| with_drive_letter(p, new_letter));
-                    let new_path = with_drive_letter(&path, new_letter);
+                    let new_path = fix(&s.install_path);
                     let target = if s.launch_method == LaunchMethod::Exe { with_drive_letter(&s.launch_target, new_letter) } else { s.launch_target.clone() };
                     let workdir = match s.working_dir.as_deref() {
                         Some(w) if drive_letter(w) == Some(letter) => Some(with_drive_letter(w, new_letter)),
@@ -232,7 +244,7 @@ pub fn refresh_availability(conn: &mut Connection, drives: &DriveSnapshot) -> Re
                     tx.execute(
                         "UPDATE game_sources SET available = 1, install_path = ?2, install_path_norm = ?3, executable_path = ?4,
                             launch_target = ?5, working_dir = ?6 WHERE id = ?1",
-                        params![s.id, new_path, norm_path(&new_path), fix(&s.executable_path), target, workdir],
+                        params![s.id, new_path, new_path.as_deref().map(norm_path), fix(&s.executable_path), target, workdir],
                     )?;
                     changed += 1;
                 }

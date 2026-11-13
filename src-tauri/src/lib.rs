@@ -10,6 +10,7 @@ pub mod models;
 pub mod providers;
 pub mod state;
 pub mod sync;
+pub mod tracker;
 pub mod vdf;
 
 use state::{AppState, Shared};
@@ -28,11 +29,20 @@ pub fn run() {
             logging::init(&data_dir);
             log::info!("démarrage, données dans {}", data_dir.display());
             let conn = db::open(&data_dir.join("library.db"))?;
+            if let Err(e) = tracker::close_orphan_sessions(&conn) {
+                log::error!("clôture des sessions orphelines : {e}");
+            }
             let state: Shared = Arc::new(AppState::new(conn, data_dir));
             app.manage(state.clone());
+            let emit = commands::emitter(app.handle());
+
+            // Suivi des heures : un fil qui dort tant qu'aucun jeu n'est lancé.
+            {
+                let (tracker, state, emit) = (state.tracker.clone(), state.clone(), emit.clone());
+                std::thread::spawn(move || tracker.run_loop(state, emit));
+            }
 
             // Détection automatique au démarrage, sans bloquer l'interface (F-DET-05).
-            let emit = commands::emitter(app.handle());
             std::thread::spawn(move || {
                 sync::run_scan(&state, &emit);
             });
@@ -42,7 +52,22 @@ pub fn run() {
             commands::get_games,
             commands::refresh_library,
             commands::is_scanning,
+            commands::get_running,
             commands::launch_game,
+            commands::install_game,
+            commands::open_path,
+            commands::add_local_game,
+            commands::get_watched_folders,
+            commands::add_watched_folder,
+            commands::remove_watched_folder,
+            commands::scan_watched_folders,
+            commands::add_candidates,
+            commands::ignore_candidates,
+            commands::get_sessions,
+            commands::delete_session,
+            commands::update_game,
+            commands::update_source,
+            commands::remove_game,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application");

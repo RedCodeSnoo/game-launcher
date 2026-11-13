@@ -44,6 +44,9 @@ pub fn scan_all(state: &AppState) -> Vec<SourceReport> {
     let mut reports = Vec::new();
     for provider in providers::all(&cfg) {
         let source = provider.id();
+        if source == SourceId::Local {
+            continue; // jeux ajoutés par l'utilisateur : vérifiés plus bas, jamais « désinstallés » par un scan vide
+        }
         let mut report = SourceReport { source, available: false, enabled: !disabled.contains(source.as_str()), error: None, stats: None };
         if !report.enabled {
             reports.push(report);

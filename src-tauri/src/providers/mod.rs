@@ -3,6 +3,7 @@ use crate::launch;
 use crate::models::{Achievement, Capabilities, DetectedGame, GameSource, OwnedGame, SourceId};
 use anyhow::Result;
 
+pub mod local;
 pub mod steam;
 
 pub trait GameProvider: Send + Sync {
@@ -38,7 +39,7 @@ pub struct ProviderConfig {
 
 /// Tous les providers, dans l'ordre de priorité du cahier des charges.
 pub fn all(cfg: &ProviderConfig) -> Vec<Box<dyn GameProvider>> {
-    vec![Box::new(steam::SteamProvider::new(cfg.steam_id.clone()))]
+    vec![Box::new(steam::SteamProvider::new(cfg.steam_id.clone())), Box::new(local::LocalProvider)]
 }
 
 pub fn by_id(cfg: &ProviderConfig, id: SourceId) -> Option<Box<dyn GameProvider>> {

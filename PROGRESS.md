@@ -3,7 +3,7 @@
 | Version | État | Tag |
 |---|---|---|
 | V0.1 – Socle | ✅ terminé | `v0.1.0` |
-| V0.2 – Local et heures | ⏳ | |
+| V0.2 – Local et heures | ✅ terminé | `v0.2.0` |
 | V0.3 – Steam en ligne | ⏳ | |
 | V0.4 – Autres launchers | ⏳ | |
 | V1.0 – Version complète | ⏳ | |
@@ -19,3 +19,11 @@
 - Interface : bibliothèque en grille et en liste virtualisées, recherche, barre latérale par source, notifications, journal dans un fichier.
 - Vérifié sur cette machine : 19 jeux Steam sur 2 disques détectés en 82 ms (20 manifestes dont 1 outil exclu).
 - Tests : 24 tests Rust, 13 tests front.
+
+## V0.2 – Local et heures
+
+- Provider Local : ajout manuel d'un `.exe` (sélecteur ou glisser-déposer), arguments et dossier de travail, dossiers surveillés, scan avec filtrage des installeurs et outils, validation candidat par candidat, candidats ignorés mémorisés.
+- PlaytimeTracker : session écrite dès le lancement, surveillance des processus du dossier du jeu toutes les 5 s (uniquement pendant qu'un jeu est suivi), délais de grâce, écriture chaque minute, clôture des sessions orphelines au démarrage, indicateur « En cours ».
+- Fiche jeu : bannière, Jouer / Installer / Indisponible, temps de jeu (source et suivi séparés), dernière session, onglets Succès (« Aucun succès »), Sessions, Infos, Paramètres du jeu (renommer, exécutable, arguments, correction manuelle du temps, masquer, retirer).
+- Vérifié : test de bout en bout avec un vrai processus (`cargo test -- --ignored`) : jeu ajouté à la main, lancé, suivi, session close avec la bonne durée.
+- Tests : 33 tests Rust (+1 de bout en bout), 13 tests front.
