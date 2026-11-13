@@ -147,6 +147,11 @@ mod tests {
             last_played_source: None,
             available: true,
             owned: false,
+            install_path_override: None,
+            executable_path_override: None,
+            launch_mode: None,
+            direct_args: None,
+            direct_working_dir: None,
         };
         let err: AppError = launch_source(&g).unwrap_err().into();
         assert_eq!(err.code, "FILE_NOT_FOUND");

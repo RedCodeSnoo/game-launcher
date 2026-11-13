@@ -170,6 +170,47 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
           {option("minimize_on_launch", "Fermer la fenêtre au lancement d'un jeu", "GameLauncher reste dans la zone de notification ; le suivi du temps de jeu continue.")}
         </SettingsCard>
 
+        <SettingsCard title="Suivi du temps de jeu" description="GameLauncher observe la liste des processus toutes les 3 secondes, sans droits administrateur.">
+          <div className="flex flex-col gap-4">
+            {option("track_external", "Suivre les jeux lancés en dehors de l'application", "Steam, raccourci du Bureau, launcher Riot… Désactivé, seuls les jeux lancés depuis GameLauncher sont suivis.", true)}
+            {option("notify_detected", "Notification « Session détectée »", "Affiche une notification Windows quand un jeu lancé en dehors de l'application est reconnu.")}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Durée minimale d'une session (secondes)</p>
+                <p className="text-xs text-muted">Les sessions plus courtes (lancement raté, fermeture immédiate) ne sont pas enregistrées.</p>
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={3600}
+                aria-label="Durée minimale d'une session (secondes)"
+                className="h-9 w-24 rounded-md border border-line bg-bg px-2 text-sm"
+                value={prefs.min_session_secs ?? "60"}
+                onChange={(e) => setPrefs((p) => ({ ...p, min_session_secs: e.target.value }))}
+                onBlur={(e) => {
+                  const n = Math.min(3600, Math.max(0, Math.round(Number(e.target.value) || 0)));
+                  void setPref("min_session_secs", String(n));
+                }}
+              />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Processus à ignorer</p>
+              <p className="mb-2 text-xs text-muted">
+                Les gestionnaires de plantage, anti-triche, launchers et vues web sont déjà ignorés. Ajoutez ici d'autres noms d'exécutables qui ne doivent pas maintenir une session ouverte (un par ligne, <code>*</code> accepté).
+              </p>
+              <textarea
+                aria-label="Processus à ignorer"
+                rows={3}
+                placeholder={"MonOutil.exe\n*Helper*.exe"}
+                className="w-full rounded-md border border-line bg-bg px-2 py-1.5 font-mono text-xs"
+                value={prefs.tracking_exclusions ?? ""}
+                onChange={(e) => setPrefs((p) => ({ ...p, tracking_exclusions: e.target.value }))}
+                onBlur={(e) => void setPref("tracking_exclusions", e.target.value)}
+              />
+            </div>
+          </div>
+        </SettingsCard>
+
         <SettingsCard title="Arrière-plan et démarrage" description="GameLauncher reste dans la zone de notification (près de l'horloge) pour suivre le temps de jeu.">
           <div className="flex flex-col gap-4">
           {option("close_quits", "La croix ferme complètement l'application", "Par défaut, fermer la fenêtre laisse GameLauncher actif dans la zone de notification. Pour quitter : clic droit sur l'icône, puis Quitter.")}

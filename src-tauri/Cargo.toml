@@ -21,11 +21,10 @@ rusqlite = { version = "0.32", features = ["bundled", "backup"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
 winreg = "0.52"
-sysinfo = "0.33"
 prost = "0.13"
 ureq = { version = "2", features = ["json"] }
 keyring = { version = "3", features = ["windows-native"] }
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 anyhow = "1"
 log = { version = "0.4", features = ["std"] }
 urlencoding = "2"

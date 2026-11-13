@@ -14,7 +14,17 @@ use tauri::{AppHandle, Emitter as _, Manager, State};
 
 /// Envoie un événement à l'interface et tient la zone de notification à jour.
 pub fn emit_event(app: &AppHandle, event: &str, payload: serde_json::Value) {
+    if event == "session-detected" {
+        // Notification facultative (E4-10).
+        let title = payload.get("title").and_then(|t| t.as_str()).unwrap_or_default();
+        crate::notify(app, "Session détectée", title);
+        return;
+    }
     let _ = app.emit(event, payload);
+    if event == "library-updated" {
+        // L'index des jeux connus suit la bibliothèque (E4-04).
+        app.state::<Shared>().tracker.invalidate();
+    }
     if matches!(event, "library-updated" | "running-changed" | "session-heartbeat") {
         crate::tray::refresh(app);
     }
@@ -278,19 +288,21 @@ pub struct SessionView {
     pub ended_at: String,
     pub duration_seconds: i64,
     pub active: bool,
+    /// `"app"` (lancée depuis l'application) ou `"detected"` (E4-12).
+    pub origin: String,
 }
 
 #[tauri::command(async)]
 pub fn get_sessions(state: State<'_, Shared>, game_id: String) -> AppResult<Vec<SessionView>> {
     let conn = state.conn();
     let mut stmt = conn.prepare(
-        "SELECT ps.id, gs.source, ps.started_at, ps.ended_at, ps.duration_seconds, ps.active
+        "SELECT ps.id, gs.source, ps.started_at, ps.ended_at, ps.duration_seconds, ps.active, ps.origin
          FROM play_sessions ps JOIN game_sources gs ON gs.id = ps.game_source_id
          WHERE gs.game_id = ?1 ORDER BY ps.started_at DESC LIMIT 500",
     )?;
     let rows = stmt
         .query_map(params![game_id], |r| {
-            Ok(SessionView { id: r.get(0)?, source: r.get(1)?, started_at: r.get(2)?, ended_at: r.get(3)?, duration_seconds: r.get(4)?, active: r.get(5)? })
+            Ok(SessionView { id: r.get(0)?, source: r.get(1)?, started_at: r.get(2)?, ended_at: r.get(3)?, duration_seconds: r.get(4)?, active: r.get(5)?, origin: r.get(6)? })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
@@ -312,6 +324,7 @@ pub struct GamePatch {
     /// `Some(None)` efface la correction manuelle (F-HEU-07).
     #[serde(default, deserialize_with = "double_option")]
     pub manual_playtime_minutes: Option<Option<i64>>,
+    pub no_tracking: Option<bool>,
 }
 
 fn double_option<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<i64>>, D::Error> {
@@ -333,6 +346,9 @@ pub fn update_game(app: AppHandle, state: State<'_, Shared>, game_id: String, pa
     }
     if let Some(hidden) = patch.hidden {
         conn.execute("UPDATE games SET hidden = ?2 WHERE id = ?1", params![game_id, hidden])?;
+    }
+    if let Some(no_tracking) = patch.no_tracking {
+        conn.execute("UPDATE games SET no_tracking = ?2 WHERE id = ?1", params![game_id, no_tracking])?;
     }
     if let Some(manual) = patch.manual_playtime_minutes {
         conn.execute("UPDATE games SET manual_playtime_minutes = ?2 WHERE id = ?1", params![game_id, manual.map(|m| m.max(0))])?;
@@ -595,6 +611,10 @@ const UI_SETTINGS: &[&str] = &[
     "reveal_hidden_achievements",
     "close_quits",
     "start_minimized",
+    "track_external",
+    "min_session_secs",
+    "notify_detected",
+    "tracking_exclusions",
 ];
 
 #[tauri::command(async)]
@@ -609,6 +629,8 @@ pub fn set_setting(state: State<'_, Shared>, key: String, value: String) -> AppR
         return Err(AppError::new("INTERNAL", format!("réglage inconnu : {key}")));
     }
     db::set_setting(&state.conn(), &key, &value)?;
+    // Les réglages du suivi sont relus par le ProcessWatcher.
+    state.tracker.invalidate();
     Ok(())
 }
 

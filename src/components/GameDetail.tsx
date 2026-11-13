@@ -42,7 +42,7 @@ function SessionsTab({ game }: { game: Game }) {
 
   if (!sessions) return <div className="skeleton h-24 rounded-lg" />;
   if (sessions.length === 0)
-    return <p className="py-8 text-center text-sm text-muted">Aucune session enregistrée. Les sessions sont suivies quand le jeu est lancé depuis l'application.</p>;
+    return <p className="py-8 text-center text-sm text-muted">Aucune session enregistrée. Les sessions sont suivies tant que GameLauncher tourne, même si le jeu est lancé depuis son launcher ou un raccourci.</p>;
   return (
     <table className="w-full text-sm">
       <thead className="text-left text-xs uppercase tracking-wide text-muted">
@@ -51,6 +51,7 @@ function SessionsTab({ game }: { game: Game }) {
           <th className="py-2 font-medium">Fin</th>
           <th className="py-2 font-medium">Durée</th>
           <th className="py-2 font-medium">Source</th>
+          <th className="py-2 font-medium">Origine</th>
           <th />
         </tr>
       </thead>
@@ -61,6 +62,7 @@ function SessionsTab({ game }: { game: Game }) {
             <td className="py-2">{s.active ? <span className="font-medium text-ok">{t("game.running")}</span> : formatDateTime(s.endedAt)}</td>
             <td className="py-2 tabular-nums">{formatSeconds(s.durationSeconds)}</td>
             <td className="py-2 text-muted">{SOURCE_LABELS[s.source]}</td>
+            <td className="py-2 text-muted">{s.origin === "detected" ? "Détectée" : "Lancée depuis l'app"}</td>
             <td className="py-2 text-right">
               {!s.active && (
                 <button
@@ -220,6 +222,20 @@ function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; o
           </div>
         </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <h3 className="text-sm font-semibold">Suivi du temps de jeu</h3>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted">
+            {game.noTracking
+              ? "Le temps de ce jeu n'est pas suivi : aucune session n'est ouverte quand il tourne."
+              : "Une session est ouverte dès que ce jeu tourne. À désactiver pour un logiciel qui reste ouvert en permanence."}
+          </p>
+          <Button onClick={() => run(() => api.updateGame(game.id, { noTracking: !game.noTracking }), game.noTracking ? "Suivi réactivé" : "Suivi désactivé pour ce jeu")}>
+            {game.noTracking ? "Réactiver le suivi" : "Ne plus suivre"}
+          </Button>
+        </div>
+      </section>
 
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold">Bibliothèque</h3>

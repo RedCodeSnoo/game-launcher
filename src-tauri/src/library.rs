@@ -387,6 +387,8 @@ pub struct GameView {
     /// Temps suivi par l'application, en secondes (affiché à part, F-HEU-05).
     pub tracked_seconds: i64,
     pub manual_playtime_minutes: Option<i64>,
+    /// Le temps de ce jeu n'est pas suivi (logiciel qui tourne en permanence, par exemple).
+    pub no_tracking: bool,
     pub last_played: Option<String>,
     pub last_session_seconds: Option<i64>,
     pub ach_total: i64,
@@ -445,7 +447,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
 
     let mut stmt = conn.prepare(
         "SELECT id, title, sort_title, cover_path, hero_path, logo_path, description, genres, developer, release_date,
-                favorite, hidden, added_at, manual_playtime_minutes FROM games",
+                favorite, hidden, added_at, manual_playtime_minutes, no_tracking FROM games",
     )?;
     let mut games = Vec::new();
     let mut rows = stmt.query([])?;
@@ -470,7 +472,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
                     last_played = Some(candidate);
                 }
             }
-            let drive = s.install_path.as_deref().and_then(drive_letter).map(|l| format!("{l}:"));
+            let drive = s.effective_dir().and_then(drive_letter).map(|l| format!("{l}:"));
             views.push(SourceView { source: s, tracked_seconds: secs, drive });
         }
         // Source installée et disponible en premier (c'est elle qu'on lance).
@@ -495,6 +497,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
             playtime_minutes: manual.unwrap_or(playtime),
             tracked_seconds: tracked_total,
             manual_playtime_minutes: manual,
+            no_tracking: r.get(14)?,
             last_played,
             last_session_seconds: last_session.get(&id).copied(),
             ach_total,

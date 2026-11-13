@@ -40,6 +40,11 @@ function makeGames(count: number): Game[] {
       lastPlayedSource: rand() > 0.4 ? new Date(Date.now() - rand() * 4e10).toISOString() : null,
       available,
       owned: source === "steam",
+      installPathOverride: null,
+      executablePathOverride: null,
+      launchMode: null,
+      directArgs: null,
+      directWorkingDir: null,
       trackedSeconds: tracked,
       drive,
     };
@@ -64,6 +69,7 @@ function makeGames(count: number): Game[] {
       playtimeMinutes: src.sourcePlaytimeMinutes ?? Math.floor(tracked / 60),
       trackedSeconds: tracked,
       manualPlaytimeMinutes: null,
+      noTracking: false,
       lastPlayed: src.lastPlayedSource,
       lastSessionSeconds: tracked ? Math.floor(tracked / 4) : null,
       achTotal,
@@ -144,7 +150,7 @@ Object.assign(mockHandlers, {
   get_sessions: (a: Args) => {
     const g = find(a.gameId);
     if (!g || g.trackedSeconds === 0) return [];
-    return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false }));
+    return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected" }));
   },
   delete_session: () => undefined,
   update_game: (a: Args) => {

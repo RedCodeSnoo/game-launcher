@@ -250,7 +250,10 @@ pub fn descendants<'a>(procs: &'a [ProcInfo], roots: &[u32]) -> Vec<&'a ProcInfo
     let mut queue: Vec<u32> = roots.to_vec();
     let mut out = Vec::new();
     while let Some(parent) = queue.pop() {
-        for p in procs.iter().filter(|p| p.parent == parent && !seen.contains(&p.pid)) {
+        for p in procs.iter().filter(|p| p.parent == parent) {
+            if seen.contains(&p.pid) {
+                continue;
+            }
             let older_than_parent = match (p.started, by_pid.get(&parent).and_then(|pp| pp.started)) {
                 (Some(child), Some(par)) => child < par,
                 _ => false,

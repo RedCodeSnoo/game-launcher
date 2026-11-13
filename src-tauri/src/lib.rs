@@ -11,6 +11,7 @@ pub mod logging;
 pub mod metadata;
 pub mod models;
 pub mod online;
+pub mod procs;
 pub mod providers;
 pub mod secrets;
 pub mod state;
@@ -106,9 +107,6 @@ pub fn run() {
             logging::init(&data_dir);
             log::info!("démarrage, données dans {}", data_dir.display());
             let conn = db::open(&data_dir.join("library.db"))?;
-            if let Err(e) = tracker::close_orphan_sessions(&conn) {
-                log::error!("clôture des sessions orphelines : {e}");
-            }
             match backup::daily(&conn, &data_dir) {
                 Ok(Some(path)) => log::info!("sauvegarde automatique : {}", path.display()),
                 Ok(None) => {}
@@ -136,7 +134,8 @@ pub fn run() {
                 }
             }
 
-            // Suivi des heures : un fil qui dort tant qu'aucun jeu n'est lancé.
+            // Suivi des heures : le ProcessWatcher observe les processus tant que l'application tourne (E4).
+            // Sa première observation reprend ou clôt les sessions restées « en cours » (E1-06).
             {
                 let (tracker, state, emit) = (state.tracker.clone(), state.clone(), emit.clone());
                 std::thread::spawn(move || tracker.run_loop(state, emit));
@@ -208,11 +207,15 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("erreur au démarrage de l'application");
-    app.run(|_app, event| {
+    app.run(|app, event| {
         if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
-            // Plus aucune fenêtre : l'application reste active dans la zone de notification.
             if code.is_none() {
+                // Plus aucune fenêtre : l'application reste active dans la zone de notification.
                 api.prevent_exit();
+            } else {
+                // Arrêt réel : dernier battement des sessions en cours.
+                let state = app.state::<Shared>();
+                state.tracker.flush(&state);
             }
         }
     });

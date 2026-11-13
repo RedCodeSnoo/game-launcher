@@ -93,6 +93,17 @@ const MIGRATIONS: &[&str] = &[
     );
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     "#,
+    // v2 (évolutions V1.1) : origine des sessions (E4-12), emplacement et lancement personnalisés (E2),
+    // jeux exclus du suivi.
+    r#"
+    ALTER TABLE play_sessions ADD COLUMN origin TEXT NOT NULL DEFAULT 'app';
+    ALTER TABLE game_sources ADD COLUMN install_path_override TEXT;
+    ALTER TABLE game_sources ADD COLUMN executable_path_override TEXT;
+    ALTER TABLE game_sources ADD COLUMN launch_mode TEXT;
+    ALTER TABLE game_sources ADD COLUMN direct_args TEXT;
+    ALTER TABLE game_sources ADD COLUMN direct_working_dir TEXT;
+    ALTER TABLE games ADD COLUMN no_tracking INTEGER NOT NULL DEFAULT 0;
+    "#,
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {
@@ -121,7 +132,7 @@ pub fn migrate(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub const SOURCE_COLS: &str = "id, game_id, source, external_id, installed, install_path, volume_serial, executable_path, launch_method, launch_target, launch_args, working_dir, source_playtime_minutes, last_played_source, available, owned";
+pub const SOURCE_COLS: &str = "id, game_id, source, external_id, installed, install_path, volume_serial, executable_path, launch_method, launch_target, launch_args, working_dir, source_playtime_minutes, last_played_source, available, owned, install_path_override, executable_path_override, launch_mode, direct_args, direct_working_dir";
 
 pub fn row_to_source(r: &Row) -> rusqlite::Result<GameSource> {
     let source: String = r.get(2)?;
@@ -143,6 +154,11 @@ pub fn row_to_source(r: &Row) -> rusqlite::Result<GameSource> {
         last_played_source: r.get(13)?,
         available: r.get(14)?,
         owned: r.get(15)?,
+        install_path_override: r.get(16)?,
+        executable_path_override: r.get(17)?,
+        launch_mode: r.get(18)?,
+        direct_args: r.get(19)?,
+        direct_working_dir: r.get(20)?,
     })
 }
 

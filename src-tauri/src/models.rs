@@ -119,6 +119,32 @@ pub struct GameSource {
     pub last_played_source: Option<String>,
     pub available: bool,
     pub owned: bool,
+    /// Dossier d'installation choisi par l'utilisateur ; jamais écrasé par la détection (E2-03).
+    pub install_path_override: Option<String>,
+    /// Exécutable principal choisi par l'utilisateur (E2-03).
+    pub executable_path_override: Option<String>,
+    /// Méthode de lancement choisie (E2-05) : `"exe"` = exécutable direct, `"launcher"` ou absent = launcher d'origine.
+    pub launch_mode: Option<String>,
+    /// Arguments et dossier de travail du mode « exécutable direct » pour les jeux d'un launcher (E2-08).
+    pub direct_args: Option<String>,
+    pub direct_working_dir: Option<String>,
+}
+
+impl GameSource {
+    /// Dossier d'installation effectif : valeur personnalisée, sinon valeur détectée.
+    pub fn effective_dir(&self) -> Option<&str> {
+        self.install_path_override.as_deref().or(self.install_path.as_deref())
+    }
+
+    /// Exécutable principal effectif : valeur personnalisée, sinon valeur détectée.
+    pub fn effective_exe(&self) -> Option<&str> {
+        self.executable_path_override.as_deref().or(self.executable_path.as_deref())
+    }
+
+    /// Le jeu se lance-t-il par son exécutable plutôt que par son launcher ? (toujours vrai pour un jeu local)
+    pub fn direct_launch(&self) -> bool {
+        self.source == SourceId::Local || self.launch_mode.as_deref() == Some("exe")
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

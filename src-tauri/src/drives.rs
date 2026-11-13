@@ -62,6 +62,12 @@ pub fn with_drive_letter(path: &str, letter: char) -> String {
 /// Forme canonique pour comparer des chemins : antislashs, minuscules, sans séparateur final.
 pub fn norm_path(path: &str) -> String {
     let mut p = path.trim().replace('/', "\\").to_lowercase();
+    // Préfixe des chemins longs de Windows (`\\?\C:\…`).
+    if let Some(rest) = p.strip_prefix("\\\\?\\") {
+        if !rest.starts_with("unc\\") {
+            p = rest.to_string();
+        }
+    }
     while p.contains("\\\\") && !p.starts_with("\\\\") {
         p = p.replace("\\\\", "\\");
     }

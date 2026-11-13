@@ -21,6 +21,13 @@ export interface GameSourceView {
   lastPlayedSource: string | null;
   available: boolean;
   owned: boolean;
+  /** Valeurs choisies par l'utilisateur ; elles priment sur les valeurs détectées (E2). */
+  installPathOverride: string | null;
+  executablePathOverride: string | null;
+  /** "exe" = exécutable direct ; "launcher" ou null = launcher d'origine. */
+  launchMode: "exe" | "launcher" | null;
+  directArgs: string | null;
+  directWorkingDir: string | null;
   trackedSeconds: number;
   drive: string | null;
 }
@@ -45,6 +52,7 @@ export interface Game {
   playtimeMinutes: number;
   trackedSeconds: number;
   manualPlaytimeMinutes: number | null;
+  noTracking: boolean;
   lastPlayed: string | null;
   lastSessionSeconds: number | null;
   achTotal: number;
@@ -59,6 +67,7 @@ export interface Session {
   endedAt: string;
   durationSeconds: number;
   active: boolean;
+  origin: "app" | "detected";
 }
 
 export interface WatchedFolder {
@@ -80,6 +89,7 @@ export interface GamePatch {
   favorite?: boolean;
   hidden?: boolean;
   manualPlaytimeMinutes?: number | null;
+  noTracking?: boolean;
 }
 
 export interface SourcePatch {
