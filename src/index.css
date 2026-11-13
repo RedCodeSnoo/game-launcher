@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+}
+
+:root {
+  --bg: #0f1117;
+  --panel: #161922;
+  --panel2: #1f2330;
+  --line: #2b3040;
+  --fg: #e8eaf0;
+  --muted: #8d94a8;
+  --accent: #6d70f6;
+  --accent-fg: #ffffff;
+  --ok: #3fbf7f;
+  --warn: #e0a83a;
+  --danger: #e5566a;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f3f4f8;
+  --panel: #ffffff;
+  --panel2: #e9ebf1;
+  --line: #d5d9e3;
+  --fg: #171a23;
+  --muted: #5c6376;
+  --accent: #4f52e0;
+  --accent-fg: #ffffff;
+  --ok: #1f9d5f;
+  --warn: #b57a10;
+  --danger: #cc3a50;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  user-select: none;
+  overflow: hidden;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+@keyframes skeleton {
+  0% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+  100% { opacity: 0.45; }
+}
+.skeleton {
+  background: var(--panel2);
+  animation: skeleton 1.4s ease-in-out infinite;
+}
