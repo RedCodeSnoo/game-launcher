@@ -59,7 +59,7 @@ export const api = {
   getSessions: (gameId: string) => call<Session[]>("get_sessions", { gameId }),
   deleteSession: (sessionId: string) => call<void>("delete_session", { sessionId }),
   updateGame: (gameId: string, patch: GamePatch) => call<void>("update_game", { gameId, patch }),
-  updateSource: (sourceId: string, patch: SourcePatch) => call<void>("update_source", { sourceId, patch }),
+  updateSource: (sourceId: string, patch: SourcePatch) => call<{ warning: string | null }>("update_source", { sourceId, patch }),
   removeGame: (gameId: string) => call<void>("remove_game", { gameId }),
   getAccounts: () => call<Accounts>("get_accounts"),
   setSteamAccount: (steamId: string, apiKey?: string) => call<number>("set_steam_account", { steamId, apiKey }),
@@ -93,17 +93,17 @@ export const api = {
 };
 
 /** Sélecteur de fichier natif (exécutable, image…). */
-export async function pickFile(title: string, extensions: string[]): Promise<string | null> {
+export async function pickFile(title: string, extensions: string[], defaultPath?: string): Promise<string | null> {
   if (!isTauri) return window.prompt(`${title} (chemin)`) || null;
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const picked = await open({ title, multiple: false, directory: false, filters: [{ name: title, extensions }] });
+  const picked = await open({ title, multiple: false, directory: false, defaultPath, filters: [{ name: title, extensions }] });
   return typeof picked === "string" ? picked : null;
 }
 
-export async function pickFolder(title: string): Promise<string | null> {
+export async function pickFolder(title: string, defaultPath?: string): Promise<string | null> {
   if (!isTauri) return window.prompt(`${title} (chemin)`) || null;
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const picked = await open({ title, multiple: false, directory: true });
+  const picked = await open({ title, multiple: false, directory: true, defaultPath });
   return typeof picked === "string" ? picked : null;
 }
 

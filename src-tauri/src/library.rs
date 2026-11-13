@@ -241,10 +241,23 @@ pub fn refresh_availability(conn: &mut Connection, drives: &DriveSnapshot) -> Re
                         Some(w) if drive_letter(w) == Some(letter) => Some(with_drive_letter(w, new_letter)),
                         other => other.map(|w| w.to_string()),
                     };
+                    // Les valeurs personnalisées situées sur ce disque suivent la nouvelle lettre.
+                    let fix_same = |p: &Option<String>| p.as_deref().map(|p| if drive_letter(p) == Some(letter) { with_drive_letter(p, new_letter) } else { p.to_string() });
                     tx.execute(
                         "UPDATE game_sources SET available = 1, install_path = ?2, install_path_norm = ?3, executable_path = ?4,
-                            launch_target = ?5, working_dir = ?6 WHERE id = ?1",
-                        params![s.id, new_path, new_path.as_deref().map(norm_path), fix(&s.executable_path), target, workdir],
+                            launch_target = ?5, working_dir = ?6, install_path_override = ?7, executable_path_override = ?8, direct_working_dir = ?9
+                         WHERE id = ?1",
+                        params![
+                            s.id,
+                            new_path,
+                            new_path.as_deref().map(norm_path),
+                            fix(&s.executable_path),
+                            target,
+                            workdir,
+                            fix_same(&s.install_path_override),
+                            fix_same(&s.executable_path_override),
+                            fix_same(&s.direct_working_dir)
+                        ],
                     )?;
                     changed += 1;
                 }
@@ -275,7 +288,7 @@ pub fn refresh_availability(conn: &mut Connection, drives: &DriveSnapshot) -> Re
 pub fn check_local_games(conn: &mut Connection, drives: &DriveSnapshot) -> Result<()> {
     let locals: Vec<GameSource> = db::all_sources(conn)?.into_iter().filter(|s| s.source == SourceId::Local).collect();
     for s in locals {
-        let Some(exe) = s.executable_path.as_deref() else { continue };
+        let Some(exe) = s.effective_exe() else { continue };
         if volume_missing(&s, drives) || !s.available {
             continue;
         }

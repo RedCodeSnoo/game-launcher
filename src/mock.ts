@@ -175,7 +175,25 @@ Object.assign(mockHandlers, {
     });
     notify();
   },
-  update_source: () => notify(),
+  update_source: (a: Args) => {
+    const patch = a.patch as Record<string, unknown>;
+    if (typeof patch.executablePathOverride === "string" && !patch.executablePathOverride.toLowerCase().endsWith(".exe")) throw { code: "NOT_AN_EXE", detail: patch.executablePathOverride };
+    let warning: string | null = null;
+    mockState.games = mockState.games.map((g) => ({
+      ...g,
+      sources: g.sources.map((s) => {
+        if (s.id !== a.sourceId) return s;
+        const next = { ...s, installPathOverride: (patch.installPathOverride as string | null) ?? null, executablePathOverride: (patch.executablePathOverride as string | null) ?? null };
+        if (s.source === "local") Object.assign(next, { launchArgs: patch.launchArgs || null, workingDir: patch.workingDir || null });
+        else Object.assign(next, { launchMode: patch.launchMode === "exe" ? "exe" : null, directArgs: patch.launchArgs || null, directWorkingDir: patch.workingDir || null });
+        const dir = (next.installPathOverride ?? next.installPath ?? "").toLowerCase();
+        if (next.executablePathOverride && dir && !next.executablePathOverride.toLowerCase().startsWith(dir)) warning = "EXE_OUTSIDE_DIR";
+        return next;
+      }),
+    }));
+    notify();
+    return { warning };
+  },
   remove_game: (a: Args) => {
     mockState.games = mockState.games.filter((g) => g.id !== a.gameId);
     notify();

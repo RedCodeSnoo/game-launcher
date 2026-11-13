@@ -1,11 +1,12 @@
 // Fiche d'un jeu : bannière, bouton Jouer, temps de jeu, onglets Succès / Sessions / Infos / Paramètres.
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, Download, Eye, EyeOff, FolderOpen, HardDrive, Heart, Pencil, Play, Square, Trash2, X, XOctagon } from "lucide-react";
-import { api, imageUrl, pickFile } from "../api";
+import { api, imageUrl } from "../api";
 import { errorMessage, SOURCE_LABELS, t } from "../i18n";
 import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
 import type { Game, GameSourceView, Session } from "../types";
 import { Cover, SourceBadge } from "./Cover";
+import { LocationSettings } from "./LocationSettings";
 import { useToasts } from "./Toasts";
 import { Button, Field, ProgressBar, Tabs, TextInput } from "./ui";
 
@@ -180,15 +181,15 @@ function InfoTab({ game }: { game: Game }) {
           </div>
           <dl>
             <InfoRow label="Identifiant">{s.externalId}</InfoRow>
-            {s.installPath && <InfoRow label="Dossier">{s.installPath}</InfoRow>}
-            {s.executablePath && <InfoRow label="Exécutable">{s.executablePath}</InfoRow>}
+            {(s.installPathOverride ?? s.installPath) && <InfoRow label="Dossier">{`${s.installPathOverride ?? s.installPath}${s.installPathOverride ? " (personnalisé)" : ""}`}</InfoRow>}
+            {(s.executablePathOverride ?? s.executablePath) && <InfoRow label="Exécutable">{`${s.executablePathOverride ?? s.executablePath}${s.executablePathOverride ? " (personnalisé)" : ""}`}</InfoRow>}
             {s.drive && (
               <InfoRow label="Disque">
                 {s.drive}
                 {s.volumeSerial ? ` (volume ${s.volumeSerial})` : ""}
               </InfoRow>
             )}
-            <InfoRow label="Lancement">{s.launchMethod === "exe" ? "Exécutable direct" : s.launchMethod === "uri" ? `Via le launcher (${s.launchTarget})` : "Ligne de commande du launcher"}</InfoRow>
+            <InfoRow label="Lancement">{s.launchMethod === "exe" || s.launchMode === "exe" ? "Exécutable direct" : s.launchMethod === "uri" ? `Via le launcher (${s.launchTarget})` : "Ligne de commande du launcher"}</InfoRow>
             {s.sourcePlaytimeMinutes !== null && <InfoRow label="Temps (source)">{formatMinutes(s.sourcePlaytimeMinutes)}</InfoRow>}
             <InfoRow label="Temps suivi">{formatSeconds(s.trackedSeconds)}</InfoRow>
           </dl>
@@ -200,11 +201,7 @@ function InfoTab({ game }: { game: Game }) {
 
 function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; onBack: () => void }) {
   const toasts = useToasts();
-  const local = game.sources.find((s) => s.source === "local");
   const [title, setTitle] = useState(game.title);
-  const [exe, setExe] = useState(local?.executablePath ?? "");
-  const [args, setArgs] = useState(local?.launchArgs ?? "");
-  const [workDir, setWorkDir] = useState(local?.workingDir ?? "");
   const [manual, setManual] = useState(game.manualPlaytimeMinutes !== null ? String(Math.round((game.manualPlaytimeMinutes / 60) * 100) / 100) : "");
   useEffect(() => setTitle(game.title), [game.title]);
 
@@ -248,36 +245,11 @@ function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; o
 
       {extra}
 
-      {local && (
-        <section className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold">Lancement</h3>
-          <Field label="Exécutable">
-            <div className="flex gap-2">
-              <TextInput value={exe} onChange={(e) => setExe(e.target.value)} />
-              <Button onClick={async () => setExe((await pickFile("Exécutable du jeu", ["exe"])) ?? exe)}>Parcourir…</Button>
-            </div>
-          </Field>
-          <Field label="Arguments de lancement">
-            <TextInput value={args} onChange={(e) => setArgs(e.target.value)} placeholder="-windowed" />
-          </Field>
-          <Field label="Dossier de travail" hint="Par défaut : le dossier de l'exécutable.">
-            <TextInput value={workDir} onChange={(e) => setWorkDir(e.target.value)} />
-          </Field>
-          <div>
-            <Button
-              variant="primary"
-              onClick={() =>
-                run(
-                  () => api.updateSource(local.id, { executablePath: exe !== (local.executablePath ?? "") ? exe : undefined, launchArgs: args, workingDir: workDir }),
-                  "Paramètres de lancement enregistrés",
-                )
-              }
-            >
-              {t("common.save")}
-            </Button>
-          </div>
-        </section>
-      )}
+      {game.sources
+        .filter((src) => src.installed)
+        .map((src) => (
+          <LocationSettings key={src.id} source={src} />
+        ))}
 
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold">Suivi du temps de jeu</h3>

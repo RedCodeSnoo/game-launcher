@@ -93,7 +93,10 @@ export interface GamePatch {
 }
 
 export interface SourcePatch {
-  executablePath?: string;
+  /** `null` = rétablir la valeur détectée. */
+  installPathOverride?: string | null;
+  executablePathOverride?: string | null;
+  launchMode?: "exe" | "launcher";
   launchArgs?: string;
   workingDir?: string;
 }

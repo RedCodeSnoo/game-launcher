@@ -102,18 +102,24 @@ pub fn do_launch(app: &AppHandle, state: &Shared, game_id: &str, source_id: Opti
     if !chosen.available {
         return Err(AppError::new("DISK_UNPLUGGED", chosen.install_path.clone().unwrap_or_default()));
     }
-    let cfg = state.provider_config();
-    match providers::by_id(&cfg, chosen.source) {
-        Some(provider) => {
-            if chosen.source != SourceId::Local && !provider.is_available() {
-                return Err(AppError::new("LAUNCHER_MISSING", chosen.source.as_str()));
+    let direct = chosen.direct_launch();
+    if direct {
+        // Jeu local, ou « exécutable direct » choisi par l'utilisateur (E2-05) : le launcher n'est pas sollicité.
+        crate::launch::launch_direct(&chosen)?;
+    } else {
+        let cfg = state.provider_config();
+        match providers::by_id(&cfg, chosen.source) {
+            Some(provider) => {
+                if !provider.is_available() {
+                    return Err(AppError::new("LAUNCHER_MISSING", chosen.source.as_str()));
+                }
+                provider.launch(&chosen)?;
             }
-            provider.launch(&chosen)?;
+            None => crate::launch::launch_source(&chosen)?,
         }
-        None => crate::launch::launch_source(&chosen)?,
     }
-    log::info!("lancement de {} ({})", chosen.external_id, chosen.source.as_str());
-    state.tracker.start(state, &emitter(app), &chosen, chosen.launch_method != LaunchMethod::Exe);
+    log::info!("lancement de {} ({}{})", chosen.external_id, chosen.source.as_str(), if direct { ", exécutable direct" } else { "" });
+    state.tracker.start(state, &emitter(app), &chosen, !direct && chosen.launch_method != LaunchMethod::Exe);
     Ok(())
 }
 
@@ -368,8 +374,8 @@ pub struct GamePatch {
     pub no_tracking: Option<bool>,
 }
 
-fn double_option<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<i64>>, D::Error> {
-    Ok(Some(Option::<i64>::deserialize(d)?))
+fn double_option<'de, T: Deserialize<'de>, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<T>>, D::Error> {
+    Ok(Some(Option::<T>::deserialize(d)?))
 }
 
 /// Renommer, mettre en favori, masquer, corriger le temps de jeu (F-MET-04, F-NAV-05/07, F-HEU-07).
@@ -399,43 +405,100 @@ pub fn update_game(app: AppHandle, state: State<'_, Shared>, game_id: String, pa
     Ok(())
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SourcePatch {
-    pub executable_path: Option<String>,
+    /// `Some(None)` = rétablir la valeur détectée (E2-02).
+    #[serde(default, deserialize_with = "double_option")]
+    pub install_path_override: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub executable_path_override: Option<Option<String>>,
+    /// `"exe"` = exécutable direct ; `"launcher"` = launcher d'origine (E2-05).
+    pub launch_mode: Option<String>,
     pub launch_args: Option<String>,
     pub working_dir: Option<String>,
 }
 
-/// Paramètres de lancement d'un jeu local : exécutable, arguments, dossier de travail (F-LOC-05).
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceUpdate {
+    /// Avertissement non bloquant, par exemple `EXE_OUTSIDE_DIR` (E2-04).
+    pub warning: Option<String>,
+}
+
+/// Emplacement et lancement personnalisés d'un jeu, pour toutes les sources (E2). Les valeurs vont dans des
+/// colonnes séparées, que la détection n'écrase jamais (E2-03) ; aucun fichier du launcher n'est modifié (E2-09).
 #[tauri::command(async)]
-pub fn update_source(app: AppHandle, state: State<'_, Shared>, source_id: String, patch: SourcePatch) -> AppResult<()> {
-    let conn = state.conn();
-    let source = db::get_source(&conn, &source_id)?.ok_or_else(|| AppError::new("GAME_NOT_FOUND", source_id.clone()))?;
-    if source.source != SourceId::Local {
-        return Err(AppError::new("NOT_EDITABLE", source.source.as_str()));
-    }
-    if let Some(exe) = patch.executable_path.as_deref().map(str::trim).filter(|e| !e.is_empty()) {
-        if !Path::new(exe).is_file() {
-            return Err(AppError::new("FILE_NOT_FOUND", exe));
-        }
-        let exe = crate::drives::clean_path(exe);
-        conn.execute(
-            "UPDATE game_sources SET executable_path = ?2, launch_target = ?2, external_id = ?3, installed = 1 WHERE id = ?1",
-            params![source_id, exe, norm_path(&exe)],
-        )
-        .map_err(|_| AppError::new("ALREADY_IN_LIBRARY", exe.clone()))?;
-    }
-    let clean = |v: &Option<String>| v.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(|s| s.to_string());
-    if patch.launch_args.is_some() {
-        conn.execute("UPDATE game_sources SET launch_args = ?2 WHERE id = ?1", params![source_id, clean(&patch.launch_args)])?;
-    }
-    if patch.working_dir.is_some() {
-        conn.execute("UPDATE game_sources SET working_dir = ?2 WHERE id = ?1", params![source_id, clean(&patch.working_dir)])?;
-    }
-    drop(conn);
+pub fn update_source(app: AppHandle, state: State<'_, Shared>, source_id: String, patch: SourcePatch) -> AppResult<SourceUpdate> {
+    let update = apply_source_patch(&state.conn(), &source_id, &patch)?;
     notify_library(&app);
-    Ok(())
+    Ok(update)
+}
+
+pub fn apply_source_patch(conn: &rusqlite::Connection, source_id: &str, patch: &SourcePatch) -> AppResult<SourceUpdate> {
+    use crate::drives::{clean_path, is_inside};
+    let source = db::get_source(conn, source_id)?.ok_or_else(|| AppError::new("GAME_NOT_FOUND", source_id))?;
+    let clean = |v: &Option<String>| v.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(clean_path);
+
+    // Validation (E2-04) : rien n'est enregistré si un chemin n'existe pas.
+    let mut dir_override = source.install_path_override.clone();
+    if let Some(value) = &patch.install_path_override {
+        dir_override = clean(value);
+        if let Some(dir) = dir_override.as_deref().filter(|d| !Path::new(d).is_dir()) {
+            return Err(AppError::new("FOLDER_NOT_FOUND", dir));
+        }
+    }
+    let mut exe_override = source.executable_path_override.clone();
+    if let Some(value) = &patch.executable_path_override {
+        exe_override = clean(value);
+        if let Some(exe) = exe_override.as_deref() {
+            if !Path::new(exe).extension().map(|e| e.eq_ignore_ascii_case("exe")).unwrap_or(false) {
+                return Err(AppError::new("NOT_AN_EXE", exe));
+            }
+            if !Path::new(exe).is_file() {
+                return Err(AppError::new("FILE_NOT_FOUND", exe));
+            }
+        }
+    }
+    let work_dir = patch.working_dir.as_ref().map(|w| clean(&Some(w.clone())));
+    if let Some(Some(dir)) = work_dir.as_ref().filter(|w| w.as_deref().map_or(false, |d| !Path::new(d).is_dir())) {
+        return Err(AppError::new("FOLDER_NOT_FOUND", dir.as_str()));
+    }
+
+    let effective_exe = exe_override.clone().or_else(|| source.executable_path.clone());
+    let mut mode = match patch.launch_mode.as_deref() {
+        Some("exe") => Some("exe"),
+        Some(_) => None,
+        None => source.launch_mode.as_deref().filter(|m| *m == "exe").map(|_| "exe"),
+    };
+    if source.source != SourceId::Local && mode == Some("exe") && effective_exe.is_none() {
+        if patch.launch_mode.is_some() {
+            return Err(AppError::new("EXE_NOT_SET", ""));
+        }
+        mode = None; // l'exécutable personnalisé vient d'être retiré : retour au launcher d'origine
+    }
+
+    conn.execute(
+        "UPDATE game_sources SET install_path_override = ?2, executable_path_override = ?3, launch_mode = ?4 WHERE id = ?1",
+        params![source_id, dir_override, exe_override, mode],
+    )?;
+    let args = patch.launch_args.as_ref().map(|a| Some(a.trim().to_string()).filter(|a| !a.is_empty()));
+    // Jeu local : ses propres colonnes ; jeu d'un launcher : colonnes du mode « exécutable direct »,
+    // pour ne pas toucher aux arguments que le launcher exige.
+    let (args_col, dir_col) = if source.source == SourceId::Local { ("launch_args", "working_dir") } else { ("direct_args", "direct_working_dir") };
+    if let Some(args) = args {
+        conn.execute(&format!("UPDATE game_sources SET {args_col} = ?2 WHERE id = ?1"), params![source_id, args])?;
+    }
+    if let Some(dir) = work_dir {
+        conn.execute(&format!("UPDATE game_sources SET {dir_col} = ?2 WHERE id = ?1"), params![source_id, dir])?;
+    }
+
+    let effective_dir = dir_override.or(source.install_path);
+    let warning = match (&exe_override, &effective_dir) {
+        (Some(exe), Some(dir)) if !is_inside(&norm_path(exe), &norm_path(dir)) => Some("EXE_OUTSIDE_DIR".to_string()),
+        _ => None,
+    };
+    Ok(SourceUpdate { warning })
 }
 
 /// Retire un jeu local de la bibliothèque (ses sessions sont supprimées avec lui).
@@ -833,6 +896,103 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    /// Bibliothèque avec un jeu Steam détecté dans un dossier réel, et un autre dossier réel « ailleurs ».
+    fn steam_game() -> (rusqlite::Connection, tempfile::TempDir, crate::models::DetectedGame, String) {
+        let tmp = tempfile::tempdir().unwrap();
+        for file in ["detecte/jeu.exe", "ailleurs/bin/vrai.exe", "ailleurs/notes.txt", "hors/outil.exe"] {
+            let path = tmp.path().join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"x").unwrap();
+        }
+        let conn = db::open_in_memory().unwrap();
+        let detected = crate::models::DetectedGame {
+            source: SourceId::Steam,
+            external_id: "42".into(),
+            title: "Jeu".into(),
+            install_path: Some(tmp.path().join("detecte").to_string_lossy().to_string()),
+            executable_path: None,
+            launch_method: LaunchMethod::Uri,
+            launch_target: "steam://rungameid/42".into(),
+            launch_args: None,
+            working_dir: None,
+            last_played: None,
+        };
+        library::upsert_detected(&conn, &detected, &DriveSnapshot::default()).unwrap();
+        let id = db::all_sources(&conn).unwrap().remove(0).id;
+        (conn, tmp, detected, id)
+    }
+
+    fn p(tmp: &tempfile::TempDir, rel: &str) -> String {
+        tmp.path().join(rel).to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn custom_location_survives_detection_and_can_be_reset() {
+        let (conn, tmp, detected, id) = steam_game();
+        let patch = SourcePatch { install_path_override: Some(Some(p(&tmp, "ailleurs"))), executable_path_override: Some(Some(p(&tmp, "ailleurs/bin/vrai.exe"))), ..Default::default() };
+        assert_eq!(apply_source_patch(&conn, &id, &patch).unwrap(), SourceUpdate { warning: None });
+
+        // Nouvelle détection : les valeurs détectées sont rafraîchies, les valeurs personnalisées intactes (E2-03).
+        library::upsert_detected(&conn, &detected, &DriveSnapshot::default()).unwrap();
+        let s = db::get_source(&conn, &id).unwrap().unwrap();
+        assert_eq!(s.install_path, detected.install_path, "valeur détectée toujours affichable");
+        assert_eq!(s.effective_dir().map(norm_path), Some(norm_path(&p(&tmp, "ailleurs"))));
+        assert_eq!(s.effective_exe().map(norm_path), Some(norm_path(&p(&tmp, "ailleurs/bin/vrai.exe"))));
+
+        // « Rétablir la valeur détectée » (E2-02).
+        let reset = SourcePatch { install_path_override: Some(None), executable_path_override: Some(None), ..Default::default() };
+        apply_source_patch(&conn, &id, &reset).unwrap();
+        let s = db::get_source(&conn, &id).unwrap().unwrap();
+        assert_eq!(s.effective_dir(), detected.install_path.as_deref());
+        assert_eq!(s.effective_exe(), None);
+    }
+
+    #[test]
+    fn invalid_paths_are_refused_and_nothing_is_saved() {
+        let (conn, tmp, _, id) = steam_game();
+        let code = |patch: SourcePatch| apply_source_patch(&conn, &id, &patch).unwrap_err().code;
+        assert_eq!(code(SourcePatch { install_path_override: Some(Some(p(&tmp, "absent"))), ..Default::default() }), "FOLDER_NOT_FOUND");
+        assert_eq!(code(SourcePatch { executable_path_override: Some(Some(p(&tmp, "ailleurs/absent.exe"))), ..Default::default() }), "FILE_NOT_FOUND");
+        assert_eq!(code(SourcePatch { executable_path_override: Some(Some(p(&tmp, "ailleurs/notes.txt"))), ..Default::default() }), "NOT_AN_EXE");
+        assert_eq!(code(SourcePatch { working_dir: Some(p(&tmp, "absent")), ..Default::default() }), "FOLDER_NOT_FOUND");
+        // Un dossier valide accompagné d'un exécutable invalide : rien n'est enregistré.
+        assert_eq!(code(SourcePatch { install_path_override: Some(Some(p(&tmp, "ailleurs"))), executable_path_override: Some(Some(p(&tmp, "non.exe"))), ..Default::default() }), "FILE_NOT_FOUND");
+        assert_eq!(code(SourcePatch { launch_mode: Some("exe".into()), ..Default::default() }), "EXE_NOT_SET", "exécutable direct sans exécutable connu");
+        let s = db::get_source(&conn, &id).unwrap().unwrap();
+        assert!(s.install_path_override.is_none() && s.executable_path_override.is_none() && s.launch_mode.is_none());
+    }
+
+    #[test]
+    fn executable_outside_the_folder_only_warns() {
+        let (conn, tmp, _, id) = steam_game();
+        let patch = SourcePatch { executable_path_override: Some(Some(p(&tmp, "hors/outil.exe"))), ..Default::default() };
+        assert_eq!(apply_source_patch(&conn, &id, &patch).unwrap().warning.as_deref(), Some("EXE_OUTSIDE_DIR"));
+        assert!(db::get_source(&conn, &id).unwrap().unwrap().executable_path_override.is_some(), "enregistré malgré l'avertissement");
+    }
+
+    #[test]
+    fn direct_launch_mode_keeps_launcher_settings_apart() {
+        let (conn, tmp, _, id) = steam_game();
+        let patch = SourcePatch {
+            executable_path_override: Some(Some(p(&tmp, "detecte/jeu.exe"))),
+            launch_mode: Some("exe".into()),
+            launch_args: Some(" -windowed ".into()),
+            working_dir: Some(p(&tmp, "detecte")),
+            ..Default::default()
+        };
+        apply_source_patch(&conn, &id, &patch).unwrap();
+        let s = db::get_source(&conn, &id).unwrap().unwrap();
+        assert!(s.direct_launch());
+        assert_eq!(s.direct_args.as_deref(), Some("-windowed"));
+        assert_eq!((s.launch_method, s.launch_target.as_str(), s.launch_args), (LaunchMethod::Uri, "steam://rungameid/42", None), "réglages du launcher intacts");
+        // Retour au launcher d'origine ; retirer l'exécutable repasse aussi en mode launcher.
+        apply_source_patch(&conn, &id, &SourcePatch { launch_mode: Some("launcher".into()), ..Default::default() }).unwrap();
+        assert!(!db::get_source(&conn, &id).unwrap().unwrap().direct_launch());
+        apply_source_patch(&conn, &id, &SourcePatch { launch_mode: Some("exe".into()), ..Default::default() }).unwrap();
+        apply_source_patch(&conn, &id, &SourcePatch { executable_path_override: Some(None), ..Default::default() }).unwrap();
+        assert!(!db::get_source(&conn, &id).unwrap().unwrap().direct_launch());
     }
 
     #[test]
