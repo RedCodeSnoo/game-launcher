@@ -164,6 +164,45 @@ Object.assign(mockHandlers, {
   },
 });
 
+let accounts = { steamId: null as string | null, steamKeySet: false, localSteamId: "76561198000000001", sgdbKeySet: false };
+
+Object.assign(mockHandlers, {
+  get_accounts: () => accounts,
+  set_steam_account: (a: Args) => {
+    if (!/^7656\d{13}$/.test(String(a.steamId))) throw { code: "STEAM_BAD_ID", detail: String(a.steamId) };
+    accounts = { ...accounts, steamId: String(a.steamId), steamKeySet: true };
+    return mockState.games.filter((g) => g.sources[0].source === "steam").length;
+  },
+  clear_steam_account: () => void (accounts = { ...accounts, steamId: null, steamKeySet: false }),
+  set_sgdb_key: (a: Args) => void (accounts = { ...accounts, sgdbKeySet: Boolean(a.apiKey) }),
+  sync_online: () => {
+    mockEmit("sync-state", { running: true });
+    setTimeout(() => mockEmit("sync-state", { running: false, errors: [] }), 1200);
+  },
+  get_achievements: (a: Args) => {
+    const g = find(a.gameId);
+    if (!g) return [];
+    return Array.from({ length: g.achTotal }, (_, i) => ({
+      apiName: `ACH_${i}`,
+      name: i % 7 === 3 ? "Succès secret" : `Succès n° ${i + 1}`,
+      description: "Accomplir un exploit de démonstration.",
+      iconUnlocked: null,
+      iconLocked: null,
+      hidden: i % 7 === 3,
+      unlocked: i < g.achUnlocked,
+      unlockedAt: i < g.achUnlocked ? new Date(Date.now() - i * 8.64e7).toISOString() : null,
+      globalPercent: Math.round((100 / (i + 1.5)) * 10) / 10,
+    }));
+  },
+  refresh_game: () => false,
+  search_metadata: (a: Args) => [
+    { appid: 1, name: String(a.term), image: null },
+    { appid: 2, name: `${String(a.term)} II`, image: null },
+  ],
+  apply_metadata: () => notify(),
+  set_cover: () => notify(),
+});
+
 export async function mockCall(cmd: string, args: Args): Promise<unknown> {
   const handler = mockHandlers[cmd];
   if (!handler) throw { code: "INTERNAL", detail: `commande simulée absente : ${cmd}` };

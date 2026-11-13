@@ -5,7 +5,8 @@ use crate::library::{self, GameView};
 use crate::models::{now_iso, LaunchMethod, SourceId};
 use crate::providers::local::{self, Candidate};
 use crate::state::{Emitter, Shared};
-use crate::{db, providers, sync};
+use crate::models::Achievement;
+use crate::{db, metadata, online, providers, secrets, steam_api, sync};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -38,6 +39,7 @@ pub fn refresh_library(app: AppHandle, state: State<'_, Shared>) {
     let emit = emitter(&app);
     std::thread::spawn(move || {
         sync::run_scan(&state, &emit);
+        online::run(&state, &emit);
     });
 }
 
@@ -371,6 +373,134 @@ pub fn remove_game(app: AppHandle, state: State<'_, Shared>, game_id: String) ->
     }
     conn.execute("DELETE FROM games WHERE id = ?1", params![game_id])?;
     drop(conn);
+    notify_library(&app);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Comptes en ligne (F-PAR-01) et synchronisation
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Accounts {
+    pub steam_id: Option<String>,
+    pub steam_key_set: bool,
+    /// SteamID du compte connecté sur ce PC, pour pré-remplir le formulaire.
+    pub local_steam_id: Option<String>,
+    pub sgdb_key_set: bool,
+}
+
+#[tauri::command(async)]
+pub fn get_accounts(state: State<'_, Shared>) -> Accounts {
+    Accounts {
+        steam_id: state.provider_config().steam_id,
+        steam_key_set: secrets::is_set(secrets::STEAM_API_KEY),
+        local_steam_id: providers::steam::local_steam_id(),
+        sgdb_key_set: secrets::is_set(secrets::STEAMGRIDDB_API_KEY),
+    }
+}
+
+fn spawn_online_sync(app: &AppHandle, state: &Shared) {
+    let state = state.clone();
+    let emit = emitter(app);
+    std::thread::spawn(move || {
+        online::run(&state, &emit);
+    });
+}
+
+/// Enregistre le compte Steam après l'avoir vérifié ; renvoie le nombre de jeux possédés.
+/// `api_key` absent = conserver la clé déjà enregistrée. La clé va dans le coffre Windows, jamais dans la base.
+#[tauri::command(async)]
+pub fn set_steam_account(app: AppHandle, state: State<'_, Shared>, steam_id: String, api_key: Option<String>) -> AppResult<usize> {
+    let key = match api_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
+        Some(k) => k.to_string(),
+        None => secrets::get(secrets::STEAM_API_KEY).ok_or_else(|| AppError::new("STEAM_KEY_REQUIRED", ""))?,
+    };
+    let mut id = steam_id.trim().trim_end_matches('/').rsplit('/').next().unwrap_or("").to_string();
+    if !steam_api::is_valid_steam_id(&id) {
+        // Peut-être une URL personnalisée (steamcommunity.com/id/<nom>).
+        id = steam_api::resolve_vanity(&key, &id)?.ok_or_else(|| AppError::new("STEAM_BAD_ID", steam_id.clone()))?;
+    }
+    let creds = steam_api::SteamCreds { key: key.clone(), steam_id: id.clone() };
+    let owned = steam_api::fetch_owned_games(&creds)?;
+    secrets::set(secrets::STEAM_API_KEY, &key)?;
+    db::set_setting(&state.conn(), "steam_id", &id)?;
+    log::info!("compte Steam enregistré ({} jeux possédés)", owned.len());
+    spawn_online_sync(&app, state.inner());
+    Ok(owned.len())
+}
+
+#[tauri::command(async)]
+pub fn clear_steam_account(state: State<'_, Shared>) -> AppResult<()> {
+    secrets::delete(secrets::STEAM_API_KEY)?;
+    db::delete_setting(&state.conn(), "steam_id")?;
+    Ok(())
+}
+
+/// Clé SteamGridDB (facultative) : `None` ou vide pour la supprimer.
+#[tauri::command(async)]
+pub fn set_sgdb_key(app: AppHandle, state: State<'_, Shared>, api_key: Option<String>) -> AppResult<()> {
+    match api_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
+        Some(key) => {
+            // Vérification de la clé par une recherche simple.
+            metadata::sgdb_search(key, "Portal")?;
+            secrets::set(secrets::STEAMGRIDDB_API_KEY, key)?;
+            metadata::reset_missing(&state.conn())?;
+            spawn_online_sync(&app, state.inner());
+        }
+        None => secrets::delete(secrets::STEAMGRIDDB_API_KEY)?,
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn sync_online(app: AppHandle, state: State<'_, Shared>) {
+    spawn_online_sync(&app, state.inner());
+}
+
+#[tauri::command(async)]
+pub fn get_achievements(state: State<'_, Shared>, game_id: String) -> AppResult<Vec<Achievement>> {
+    Ok(library::list_achievements(&state.conn(), &game_id)?)
+}
+
+/// Met à jour un jeu à l'ouverture de sa fiche (succès, images, description).
+#[tauri::command(async)]
+pub fn refresh_game(app: AppHandle, state: State<'_, Shared>, game_id: String, force: bool) -> AppResult<bool> {
+    let changed = online::refresh_game(&state, &game_id, force)?;
+    if changed {
+        notify_library(&app);
+    }
+    Ok(changed)
+}
+
+// ---------------------------------------------------------------------------
+// Métadonnées (F-MET-03, F-MET-04)
+// ---------------------------------------------------------------------------
+
+#[tauri::command(async)]
+pub fn search_metadata(term: String) -> AppResult<Vec<metadata::StoreMatch>> {
+    Ok(metadata::store_search(term.trim())?)
+}
+
+/// Associe le jeu à la fiche confirmée par l'utilisateur.
+#[tauri::command(async)]
+pub fn apply_metadata(app: AppHandle, state: State<'_, Shared>, game_id: String, appid: i64) -> AppResult<()> {
+    metadata::apply_store_match(&state, &game_id, appid)?;
+    notify_library(&app);
+    Ok(())
+}
+
+/// Remplace la jaquette par une image locale ; `path` absent = revenir à la jaquette automatique.
+#[tauri::command(async)]
+pub fn set_cover(app: AppHandle, state: State<'_, Shared>, game_id: String, path: Option<String>) -> AppResult<()> {
+    match path {
+        Some(p) => metadata::set_custom_cover(&state, &game_id, Path::new(&p))?,
+        None => {
+            state.conn().execute("UPDATE games SET custom_cover = 0, cover_path = NULL, images_checked = 0 WHERE id = ?1", params![game_id])?;
+            let _ = metadata::fetch_images(&state, &game_id);
+        }
+    }
     notify_library(&app);
     Ok(())
 }

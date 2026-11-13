@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { api, on, onFileDrop } from "./api";
+import { AchievementsTab } from "./components/Achievements";
 import { AddGameDialog } from "./components/AddGameDialog";
 import { GameDetail } from "./components/GameDetail";
 import { Library } from "./components/Library";
+import { MetadataSettings } from "./components/MetadataSettings";
+import { Settings } from "./components/Settings";
 import { Sidebar, type Page } from "./components/Sidebar";
 import { ToastProvider, useToasts } from "./components/Toasts";
 import { Button } from "./components/ui";
 import { errorMessage, SOURCE_LABELS, t } from "./i18n";
 import { DEFAULT_FILTERS, type Filters, type Section } from "./lib/filter";
-import type { Game, ScanState } from "./types";
+import type { Game, ScanState, SyncState } from "./types";
 
 export function sectionTitle(section: Section): string {
   switch (section.kind) {
@@ -42,6 +45,7 @@ function Shell() {
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [openGameId, setOpenGameId] = useState<string | null>(null);
   const [addDialog, setAddDialog] = useState<{ exe?: string } | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -65,6 +69,13 @@ function Shell() {
         if (r.error) toasts.error(`${SOURCE_LABELS[r.source]} : ${r.error}`);
       }
     });
+    const offSync = on<SyncState>("sync-state", (s) => {
+      setSyncing(s.running);
+      for (const err of s.errors ?? []) {
+        // Hors ligne : rien d'anormal, la bibliothèque locale reste utilisable.
+        if (err.code !== "OFFLINE") toasts.error(`${SOURCE_LABELS[err.source]} : ${errorMessage(err)}`);
+      }
+    });
     // Glisser-déposer d'un .exe : ouvre l'ajout manuel pré-rempli.
     const offDrop = onFileDrop((paths) => {
       const exe = paths.find((p) => p.toLowerCase().endsWith(".exe"));
@@ -75,6 +86,7 @@ function Shell() {
       offLib();
       offRun();
       offScan();
+      offSync();
       offDrop();
     };
   }, [reload, toasts]);
@@ -99,6 +111,11 @@ function Shell() {
   const openGame = useMemo(() => games.find((g) => g.id === openGameId) ?? null, [games, openGameId]);
   const closeGame = useCallback(() => setOpenGameId(null), []);
 
+  // À l'ouverture d'une fiche : mise à jour discrète des succès et des visuels du jeu.
+  useEffect(() => {
+    if (openGameId) void api.refreshGame(openGameId).catch(() => {});
+  }, [openGameId]);
+
   return (
     <div className="flex h-full">
       <Sidebar
@@ -109,16 +126,29 @@ function Shell() {
           setSection(s);
           setOpenGameId(null);
         }}
-        onPage={setPage}
+        onPage={(p) => {
+          setPage(p);
+          setOpenGameId(null);
+        }}
       />
       <main className="min-w-0 flex-1">
         {openGame ? (
-          <GameDetail key={openGame.id} game={openGame} isRunning={running.has(openGame.id)} onBack={closeGame} onPlay={play} />
+          <GameDetail
+            key={openGame.id}
+            game={openGame}
+            isRunning={running.has(openGame.id)}
+            onBack={closeGame}
+            onPlay={play}
+            achievements={<AchievementsTab game={openGame} />}
+            extraSettings={<MetadataSettings game={openGame} />}
+          />
+        ) : page === "settings" ? (
+          <Settings />
         ) : (
           <Library
             games={games}
             loading={loading}
-            scanning={scanning}
+            scanning={scanning || syncing}
             running={running}
             section={section}
             title={sectionTitle(section)}

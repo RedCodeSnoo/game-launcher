@@ -2,7 +2,7 @@
 //! disponibilité des disques et vue agrégée pour l'interface.
 use crate::db::{self, new_id};
 use crate::drives::{drive_letter, is_inside, norm_path, with_drive_letter, DriveSnapshot};
-use crate::models::{now_iso, unix_to_iso, DetectedGame, GameSource, LaunchMethod, OwnedGame, SourceId};
+use crate::models::{now_iso, unix_to_iso, Achievement, DetectedGame, GameSource, LaunchMethod, OwnedGame, SourceId};
 use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
@@ -307,6 +307,47 @@ pub fn path_already_known(conn: &Connection, path: &str) -> Result<bool> {
         }
     }
     Ok(false)
+}
+
+/// Remplace les succès d'une source (F-SUC-01). `None` = le jeu n'a pas de succès.
+pub fn store_achievements(conn: &mut Connection, source_id: &str, achievements: Option<&[Achievement]>) -> Result<()> {
+    let tx = conn.transaction()?;
+    tx.execute("DELETE FROM achievements WHERE game_source_id = ?1", params![source_id])?;
+    for a in achievements.unwrap_or_default() {
+        tx.execute(
+            "INSERT OR REPLACE INTO achievements(id, game_source_id, api_name, name, description, icon_unlocked, icon_locked, hidden, unlocked, unlocked_at, global_percent)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![new_id(), source_id, a.api_name, a.name, a.description, a.icon_unlocked, a.icon_locked, a.hidden, a.unlocked, a.unlocked_at, a.global_percent],
+        )?;
+    }
+    tx.execute("UPDATE game_sources SET achievements_synced_at = ?2 WHERE id = ?1", params![source_id, now_iso()])?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// Succès d'un jeu, débloqués d'abord (du plus récent au plus ancien), puis par rareté décroissante.
+pub fn list_achievements(conn: &Connection, game_id: &str) -> Result<Vec<Achievement>> {
+    let mut stmt = conn.prepare(
+        "SELECT a.api_name, a.name, a.description, a.icon_unlocked, a.icon_locked, a.hidden, a.unlocked, a.unlocked_at, a.global_percent
+         FROM achievements a JOIN game_sources gs ON gs.id = a.game_source_id WHERE gs.game_id = ?1
+         ORDER BY a.unlocked DESC, a.unlocked_at DESC, a.global_percent DESC, a.name",
+    )?;
+    let rows = stmt
+        .query_map(params![game_id], |r| {
+            Ok(Achievement {
+                api_name: r.get(0)?,
+                name: r.get(1)?,
+                description: r.get(2)?,
+                icon_unlocked: r.get(3)?,
+                icon_locked: r.get(4)?,
+                hidden: r.get(5)?,
+                unlocked: r.get(6)?,
+                unlocked_at: r.get(7)?,
+                global_percent: r.get(8)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
 }
 
 // ---------------------------------------------------------------------------
@@ -687,6 +728,38 @@ mod tests {
         // Un scan ultérieur ne supprime pas le jeu possédé non installé.
         apply_scan(&mut conn, SourceId::Steam, &[steam_game("10", "Alpha", "C:\\Steam\\common\\Alpha")], &d).unwrap();
         assert_eq!(list_games(&conn).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn achievements_are_stored_counted_and_replaced() {
+        let mut conn = db::open_in_memory().unwrap();
+        let d = drives(&[('C', "AAAA")]);
+        apply_scan(&mut conn, SourceId::Steam, &[steam_game("10", "Alpha", r"C:\Steam\common\Alpha")], &d).unwrap();
+        let game = list_games(&conn).unwrap().remove(0);
+        assert_eq!((game.ach_total, game.ach_unlocked), (0, 0), "aucun succès par défaut");
+        let ach = |name: &str, unlocked: bool| Achievement {
+            api_name: name.into(),
+            name: name.to_lowercase(),
+            description: String::new(),
+            icon_unlocked: None,
+            icon_locked: None,
+            hidden: false,
+            unlocked,
+            unlocked_at: unlocked.then(|| "2026-02-01T00:00:00Z".to_string()),
+            global_percent: Some(50.0),
+        };
+        let sid = game.sources[0].source.id.clone();
+        store_achievements(&mut conn, &sid, Some(&[ach("A", true), ach("B", false), ach("C", false)])).unwrap();
+        let game = list_games(&conn).unwrap().remove(0);
+        assert_eq!((game.ach_total, game.ach_unlocked), (3, 1));
+        let listed = list_achievements(&conn, &game.id).unwrap();
+        assert_eq!(listed[0].api_name, "A", "débloqués en premier");
+        // Nouvelle synchronisation : remplacement complet, pas de doublons.
+        store_achievements(&mut conn, &sid, Some(&[ach("A", true), ach("B", true)])).unwrap();
+        let game = list_games(&conn).unwrap().remove(0);
+        assert_eq!((game.ach_total, game.ach_unlocked), (2, 2));
+        store_achievements(&mut conn, &sid, None).unwrap();
+        assert!(list_achievements(&conn, &game.id).unwrap().is_empty());
     }
 
     #[test]

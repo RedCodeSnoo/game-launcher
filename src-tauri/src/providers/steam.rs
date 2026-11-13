@@ -1,7 +1,10 @@
 //! Provider Steam (§4.1) : bibliothèques multi-disques, manifestes ACF, lancement par URI.
 use super::{reg_string, GameProvider};
 use crate::drives::clean_path;
-use crate::models::{Capabilities, DetectedGame, GameSource, LaunchMethod, SourceId};
+use crate::error::AppError;
+use crate::models::{Achievement, Capabilities, DetectedGame, GameSource, LaunchMethod, OwnedGame, SourceId};
+use crate::secrets;
+use crate::steam_api::{self, SteamCreds};
 use crate::vdf;
 use anyhow::{anyhow, Context, Result};
 use std::path::{Path, PathBuf};
@@ -24,14 +27,42 @@ const EXCLUDED_APPIDS: &[&str] = &[
 const EXCLUDED_NAME_PREFIXES: &[&str] = &["proton ", "steam linux runtime", "steamworks common", "steamvr"];
 
 pub struct SteamProvider {
-    #[allow(dead_code)]
-    pub(crate) steam_id: Option<String>,
+    steam_id: Option<String>,
 }
 
 impl SteamProvider {
     pub fn new(steam_id: Option<String>) -> Self {
         SteamProvider { steam_id }
     }
+
+    /// Clé API (coffre Windows) et SteamID64 ; erreur explicite si le compte n'est pas configuré.
+    pub fn creds(&self) -> Result<SteamCreds> {
+        let steam_id = self.steam_id.clone().ok_or_else(|| AppError::new("STEAM_NOT_CONFIGURED", ""))?;
+        let key = secrets::get(secrets::STEAM_API_KEY).ok_or_else(|| AppError::new("STEAM_NOT_CONFIGURED", ""))?;
+        Ok(SteamCreds { key, steam_id })
+    }
+
+    pub fn is_configured(&self) -> bool {
+        self.steam_id.is_some() && secrets::is_set(secrets::STEAM_API_KEY)
+    }
+}
+
+/// SteamID64 du dernier compte connecté sur ce PC (`config/loginusers.vdf`), pour pré-remplir l'assistant.
+pub fn parse_login_users(content: &str) -> Option<String> {
+    let doc = vdf::parse(content).ok()?;
+    let users = doc.get("users")?;
+    let entries = users.entries();
+    entries
+        .iter()
+        .find(|(_, v)| v.str("MostRecent") == Some("1"))
+        .or_else(|| entries.iter().max_by_key(|(_, v)| v.str("timestamp").and_then(|t| t.parse::<i64>().ok()).unwrap_or(0)))
+        .map(|(id, _)| id.clone())
+        .filter(|id| steam_api::is_valid_steam_id(id))
+}
+
+pub fn local_steam_id() -> Option<String> {
+    let path = steam_path()?.join("config").join("loginusers.vdf");
+    parse_login_users(&std::fs::read_to_string(path).ok()?)
 }
 
 pub fn steam_path() -> Option<PathBuf> {
@@ -163,6 +194,23 @@ impl GameProvider for SteamProvider {
         scan_steam_root(&root)
     }
 
+    fn fetch_owned(&self) -> Result<Vec<OwnedGame>> {
+        if !self.is_configured() {
+            return Ok(Vec::new());
+        }
+        let games = steam_api::fetch_owned_games(&self.creds()?)?;
+        Ok(games.into_iter().filter(|g| !is_excluded(&g.external_id, &g.title)).collect())
+    }
+
+    fn fetch_playtime(&self, g: &GameSource) -> Result<Option<i64>> {
+        // Le temps de jeu arrive avec la liste des jeux possédés (un seul appel pour toute la bibliothèque).
+        Ok(g.source_playtime_minutes)
+    }
+
+    fn fetch_achievements(&self, g: &GameSource) -> Result<Option<Vec<Achievement>>> {
+        steam_api::fetch_achievements(&self.creds()?, &g.external_id)
+    }
+
     fn install_uri(&self, g: &GameSource) -> Option<String> {
         Some(format!("steam://install/{}", g.external_id))
     }
@@ -195,6 +243,15 @@ mod tests {
     fn parses_app_manifest() {
         let m = parse_app_manifest(MANIFEST).unwrap();
         assert_eq!(m, AppManifest { appid: "108600".into(), name: "Project Zomboid".into(), installdir: "ProjectZomboid".into(), last_played: Some(1792771130) });
+    }
+
+    #[test]
+    fn finds_most_recent_local_account() {
+        let doc = r#""users" { "76561198000000001" { "AccountName" "a" "MostRecent" "0" "timestamp" "10" } "76561198000000002" { "AccountName" "b" "MostRecent" "1" "timestamp" "5" } }"#;
+        assert_eq!(parse_login_users(doc).as_deref(), Some("76561198000000002"));
+        let single = r#""users" { "76561198000000003" { "timestamp" "7" } }"#;
+        assert_eq!(parse_login_users(single).as_deref(), Some("76561198000000003"));
+        assert_eq!(parse_login_users(r#""users" { }"#), None);
     }
 
     #[test]

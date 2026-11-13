@@ -4,7 +4,7 @@
 |---|---|---|
 | V0.1 – Socle | ✅ terminé | `v0.1.0` |
 | V0.2 – Local et heures | ✅ terminé | `v0.2.0` |
-| V0.3 – Steam en ligne | ⏳ | |
+| V0.3 – Steam en ligne | ✅ terminé (API à vérifier avec une vraie clé) | `v0.3.0` |
 | V0.4 – Autres launchers | ⏳ | |
 | V1.0 – Version complète | ⏳ | |
 | V1.x | ⏳ | |
@@ -27,3 +27,15 @@
 - Fiche jeu : bannière, Jouer / Installer / Indisponible, temps de jeu (source et suivi séparés), dernière session, onglets Succès (« Aucun succès »), Sessions, Infos, Paramètres du jeu (renommer, exécutable, arguments, correction manuelle du temps, masquer, retirer).
 - Vérifié : test de bout en bout avec un vrai processus (`cargo test -- --ignored`) : jeu ajouté à la main, lancé, suivi, session close avec la bonne durée.
 - Tests : 33 tests Rust (+1 de bout en bout), 13 tests front.
+
+## V0.3 – Steam en ligne
+
+- Compte Steam : clé API dans le coffre Windows (Credential Manager), SteamID64 (pré-rempli depuis `loginusers.vdf`, URL personnalisée résolue), vérification à l'enregistrement, messages clairs (profil privé, clé refusée).
+- Jeux possédés non installés, heures et dernier lancement (`GetOwnedGames`), bouton « Installer » (`steam://install/<appid>`).
+- Succès : progression du joueur, schéma (noms, descriptions, icônes), rareté mondiale ; succès cachés masqués avec option pour les révéler ; « Aucun succès » sinon. Synchronisation incrémentale (jeux joués depuis la dernière synchronisation) et à l'ouverture d'une fiche.
+- Visuels : cache local du client Steam (fonctionne hors ligne) → CDN Steam → SteamGridDB (clé facultative) → image d'en-tête ; images copiées dans le cache de l'application. Jaquette personnalisée, association d'un jeu à une fiche par recherche du nom avec confirmation.
+- Description, genres, développeur, date de sortie depuis la boutique Steam, en tâche de fond limitée en débit.
+- Hors ligne : la synchronisation échoue en silence, la bibliothèque locale reste utilisable.
+- Vérifié sur cette machine : 19 jeux Steam, bannières et logos pour tous, 18 jaquettes depuis le cache Steam sans réseau. Coffre Windows testé (écriture, lecture, suppression).
+- Non vérifiable ici : appels authentifiés à l'API Steam (pas de clé) → `TODO.md`.
+- Tests : 46 tests Rust (+1 de bout en bout), 13 tests front.

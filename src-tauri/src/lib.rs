@@ -3,12 +3,17 @@ pub mod commands;
 pub mod db;
 pub mod drives;
 pub mod error;
+pub mod http;
 pub mod launch;
 pub mod library;
 pub mod logging;
+pub mod metadata;
 pub mod models;
+pub mod online;
 pub mod providers;
+pub mod secrets;
 pub mod state;
+pub mod steam_api;
 pub mod sync;
 pub mod tracker;
 pub mod vdf;
@@ -45,6 +50,8 @@ pub fn run() {
             // Détection automatique au démarrage, sans bloquer l'interface (F-DET-05).
             std::thread::spawn(move || {
                 sync::run_scan(&state, &emit);
+                // Puis synchronisation en ligne (sans effet hors ligne ou sans compte).
+                online::run(&state, &emit);
             });
             Ok(())
         })
@@ -68,6 +75,16 @@ pub fn run() {
             commands::update_game,
             commands::update_source,
             commands::remove_game,
+            commands::get_accounts,
+            commands::set_steam_account,
+            commands::clear_steam_account,
+            commands::set_sgdb_key,
+            commands::sync_online,
+            commands::get_achievements,
+            commands::refresh_game,
+            commands::search_metadata,
+            commands::apply_metadata,
+            commands::set_cover,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au démarrage de l'application");

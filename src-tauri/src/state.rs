@@ -12,6 +12,7 @@ pub struct AppState {
     pub db: Mutex<Connection>,
     pub data_dir: PathBuf,
     pub scanning: AtomicBool,
+    pub syncing: AtomicBool,
     pub tracker: Arc<Tracker>,
 }
 
@@ -22,7 +23,7 @@ pub type Emitter = Arc<dyn Fn(&str, serde_json::Value) + Send + Sync>;
 
 impl AppState {
     pub fn new(conn: Connection, data_dir: PathBuf) -> Self {
-        AppState { db: Mutex::new(conn), data_dir, scanning: AtomicBool::new(false), tracker: Tracker::new() }
+        AppState { db: Mutex::new(conn), data_dir, scanning: AtomicBool::new(false), syncing: AtomicBool::new(false), tracker: Tracker::new() }
     }
 
     /// Verrou sur la base ; un verrou empoisonné (panique d'un autre fil) reste utilisable.

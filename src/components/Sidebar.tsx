@@ -1,6 +1,6 @@
 // Barre latérale : sections de la bibliothèque, sources, pages.
 import type { ReactNode } from "react";
-import { Gamepad2, HardDriveDownload, Library } from "lucide-react";
+import { Gamepad2, HardDriveDownload, Library, Settings as SettingsIcon } from "lucide-react";
 import { SOURCE_COLORS, SOURCE_LABELS, t } from "../i18n";
 import { listSources, type Section } from "../lib/filter";
 import type { Game, SourceId } from "../types";
@@ -75,7 +75,10 @@ export function Sidebar({ games, page, section, onSection, onPage, extraSections
           />
         ))}
       </nav>
-      {footer && <div className="flex flex-col gap-0.5 border-t border-line p-2">{footer}</div>}
+      <div className="flex flex-col gap-0.5 border-t border-line p-2">
+        {footer}
+        <NavItem active={page === "settings"} onClick={() => onPage("settings")} icon={<SettingsIcon size={16} />} label={t("nav.settings")} />
+      </div>
     </aside>
   );
 }

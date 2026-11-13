@@ -1,7 +1,7 @@
 // Passerelle vers le backend. Hors Tauri (navigateur, `npm run dev`), un backend simulé prend le relais.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Candidate, Game, GamePatch, ScanState, Session, SourcePatch, WatchedFolder } from "./types";
+import type { Accounts, Achievement, Candidate, Game, GamePatch, ScanState, Session, SourcePatch, StoreMatch, WatchedFolder } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -58,6 +58,16 @@ export const api = {
   updateGame: (gameId: string, patch: GamePatch) => call<void>("update_game", { gameId, patch }),
   updateSource: (sourceId: string, patch: SourcePatch) => call<void>("update_source", { sourceId, patch }),
   removeGame: (gameId: string) => call<void>("remove_game", { gameId }),
+  getAccounts: () => call<Accounts>("get_accounts"),
+  setSteamAccount: (steamId: string, apiKey?: string) => call<number>("set_steam_account", { steamId, apiKey }),
+  clearSteamAccount: () => call<void>("clear_steam_account"),
+  setSgdbKey: (apiKey?: string) => call<void>("set_sgdb_key", { apiKey }),
+  syncOnline: () => call<void>("sync_online"),
+  getAchievements: (gameId: string) => call<Achievement[]>("get_achievements", { gameId }),
+  refreshGame: (gameId: string, force = false) => call<boolean>("refresh_game", { gameId, force }),
+  searchMetadata: (term: string) => call<StoreMatch[]>("search_metadata", { term }),
+  applyMetadata: (gameId: string, appid: number) => call<void>("apply_metadata", { gameId, appid }),
+  setCover: (gameId: string, path?: string) => call<void>("set_cover", { gameId, path }),
 };
 
 /** Sélecteur de fichier natif (exécutable, image…). */

@@ -1,0 +1,12 @@
+{
+  "playerstats": {
+    "steamID": "76561190000000000",
+    "gameName": "Jeu de test",
+    "achievements": [
+      { "apiname": "ACH_FIRST", "achieved": 1, "unlocktime": 1700000000, "name": "Premier pas", "description": "Terminer le tutoriel" },
+      { "apiname": "ACH_SECOND", "achieved": 0, "unlocktime": 0, "name": "Collectionneur", "description": "Trouver tous les objets" },
+      { "apiname": "ACH_SECRET", "achieved": 1, "unlocktime": 1700003600, "name": "Secret", "description": "" }
+    ],
+    "success": true
+  }
+}

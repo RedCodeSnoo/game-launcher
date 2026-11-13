@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, Download, Eye, EyeOff, FolderOpen, HardDrive, Heart, Play, Trash2 } from "lucide-react";
 import { api, imageUrl, pickFile } from "../api";
 import { errorMessage, SOURCE_LABELS, t } from "../i18n";
-import { formatDate, formatDateTime, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
+import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
 import type { Game, GameSourceView, Session } from "../types";
 import { Cover, SourceBadge } from "./Cover";
 import { useToasts } from "./Toasts";
@@ -106,7 +106,7 @@ function InfoTab({ game }: { game: Game }) {
       <dl>
         {game.genres.length > 0 && <InfoRow label="Genres">{game.genres.join(", ")}</InfoRow>}
         {game.developer && <InfoRow label="Développeur">{game.developer}</InfoRow>}
-        {game.releaseDate && <InfoRow label="Date de sortie">{formatDate(game.releaseDate)}</InfoRow>}
+        {game.releaseDate && <InfoRow label="Date de sortie">{formatLooseDate(game.releaseDate)}</InfoRow>}
         <InfoRow label="Ajouté le">{formatDate(game.addedAt)}</InfoRow>
       </dl>
       {game.sources.map((s) => (

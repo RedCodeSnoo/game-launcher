@@ -52,3 +52,19 @@ Le dossier du jeu sert au suivi (tout processus du dossier compte) et au dédoub
 ## D10 – Retirer un jeu
 
 Seuls les jeux locaux peuvent être retirés de la bibliothèque. Un jeu de launcher réapparaîtrait au scan suivant : il faut le masquer (F-NAV-07).
+
+## D11 – Métadonnées sans IGDB
+
+IGDB impose un compte développeur Twitch. Pour un usage personnel sans configuration, la fiche de la boutique Steam (API publique, sans clé) fournit description, genres, développeur et date de sortie. Un jeu non-Steam est associé automatiquement à une fiche si le titre normalisé est identique, sinon l'utilisateur choisit la fiche (F-MET-03). IGDB reste possible plus tard : le champ `igdbId` existe déjà.
+
+## D12 – Ordre des sources d'images
+
+Cache local du client Steam d'abord (aucun réseau, visuels exacts de la bibliothèque Steam), puis CDN Steam, puis SteamGridDB si une clé est fournie, puis image d'en-tête de la boutique. Les fichiers du client Steam sont seulement lus et copiés.
+
+## D13 – Secrets
+
+Les clés (API Steam, SteamGridDB) ne transitent que de l'interface vers le backend, qui les écrit dans le Gestionnaire d'identification Windows (`keyring`). Elles ne sont ni dans la base, ni dans les journaux (les messages d'erreur HTTP n'incluent jamais l'URL), ni renvoyées à l'interface (seulement « clé enregistrée : oui/non »). Le SteamID, public, est dans la table `settings`.
+
+## D14 – Synchronisation des succès
+
+Trois appels par jeu (progression, schéma, rareté). En tâche de fond, seuls les jeux installés ou déjà joués sont synchronisés, puis uniquement ceux rejoués depuis. Les autres le sont à l'ouverture de leur fiche. Un profil privé ou une clé refusée arrête la boucle avec un message unique.

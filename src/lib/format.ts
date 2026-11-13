@@ -21,6 +21,11 @@ export function formatDate(iso: string | null | undefined): string {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Date de sortie : ISO si possible, sinon le texte fourni par la source (« 17 sept. 2020 »). */
+export function formatLooseDate(text: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? formatDate(text) : text;
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "Jamais";
   const d = new Date(iso);

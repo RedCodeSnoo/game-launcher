@@ -1,0 +1,10 @@
+{
+  "response": {
+    "game_count": 3,
+    "games": [
+      { "appid": 108600, "name": "Project Zomboid", "playtime_forever": 4321, "img_icon_url": "abc", "playtime_windows_forever": 4321, "rtime_last_played": 1792771130 },
+      { "appid": 1145360, "name": "Hades", "playtime_forever": 95, "rtime_last_played": 1700000000 },
+      { "appid": 367520, "name": "Hollow Knight", "playtime_forever": 0, "rtime_last_played": 0 }
+    ]
+  }
+}

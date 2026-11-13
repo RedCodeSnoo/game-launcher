@@ -1,0 +1,13 @@
+{
+  "game": {
+    "gameName": "Jeu de test",
+    "gameVersion": "12",
+    "availableGameStats": {
+      "achievements": [
+        { "name": "ACH_FIRST", "defaultvalue": 0, "displayName": "Premier pas", "hidden": 0, "description": "Terminer le tutoriel", "icon": "https://example.invalid/first.jpg", "icongray": "https://example.invalid/first_gray.jpg" },
+        { "name": "ACH_SECOND", "defaultvalue": 0, "displayName": "Collectionneur", "hidden": 0, "description": "Trouver tous les objets", "icon": "https://example.invalid/second.jpg", "icongray": "https://example.invalid/second_gray.jpg" },
+        { "name": "ACH_SECRET", "defaultvalue": 0, "displayName": "Secret", "hidden": 1, "icon": "https://example.invalid/secret.jpg", "icongray": "https://example.invalid/secret_gray.jpg" }
+      ]
+    }
+  }
+}

@@ -88,6 +88,42 @@ export interface SourcePatch {
   workingDir?: string;
 }
 
+export interface Achievement {
+  apiName: string;
+  name: string;
+  description: string;
+  iconUnlocked: string | null;
+  iconLocked: string | null;
+  hidden: boolean;
+  unlocked: boolean;
+  unlockedAt: string | null;
+  globalPercent: number | null;
+}
+
+export interface Accounts {
+  steamId: string | null;
+  steamKeySet: boolean;
+  localSteamId: string | null;
+  sgdbKeySet: boolean;
+}
+
+export interface StoreMatch {
+  appid: number;
+  name: string;
+  image: string | null;
+}
+
+export interface SyncError {
+  source: SourceId;
+  code: string;
+  detail: string;
+}
+
+export interface SyncState {
+  running: boolean;
+  errors?: SyncError[];
+}
+
 export interface AppError {
   code: string;
   detail: string;
