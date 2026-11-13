@@ -191,6 +191,7 @@ function InfoTab({ game }: { game: Game }) {
             )}
             <InfoRow label="Lancement">{s.launchMethod === "exe" || s.launchMode === "exe" ? "Exécutable direct" : s.launchMethod === "uri" ? `Via le launcher (${s.launchTarget})` : "Ligne de commande du launcher"}</InfoRow>
             {s.sourcePlaytimeMinutes !== null && <InfoRow label="Temps (source)">{formatMinutes(s.sourcePlaytimeMinutes)}</InfoRow>}
+            {s.sinceSyncSeconds >= 60 && <InfoRow label="Depuis la synchro">{`+ ${formatSeconds(s.sinceSyncSeconds)} (ajouté au total jusqu'à la prochaine synchronisation)`}</InfoRow>}
             <InfoRow label="Temps suivi">{formatSeconds(s.trackedSeconds)}</InfoRow>
           </dl>
         </div>
@@ -381,8 +382,10 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
             sub={
               game.manualPlaytimeMinutes !== null
                 ? "corrigé manuellement"
-                : hasSourceTime
-                  ? t("game.tracked", { t: formatSeconds(game.trackedSeconds) })
+                : game.sinceSyncSeconds >= 60
+                  ? t("game.sinceSync", { t: formatSeconds(game.sinceSyncSeconds) })
+                  : hasSourceTime
+                    ? t("game.tracked", { t: formatSeconds(game.trackedSeconds) })
                   : t("game.trackedOnly")
             }
           />

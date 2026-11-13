@@ -174,3 +174,14 @@ La croix détruit la fenêtre au lieu de la masquer : les processus WebView2 s'a
 - « Exécutable direct » n'est proposé que si un exécutable est connu ; retirer l'exécutable personnalisé d'un jeu sans exécutable détecté repasse au launcher d'origine.
 - Jeu local : l'exécutable d'origine reste la valeur « détectée », l'exécutable choisi ensuite est la valeur personnalisée.
 - Les valeurs personnalisées situées sur un disque externe suivent son changement de lettre.
+
+## D35 – Total = temps de la source + sessions depuis la dernière synchronisation
+
+Demande de l'utilisateur (13 novembre 2026) : après l'import des heures Steam, le total doit augmenter quand il joue, sans attendre une synchronisation ; et une synchronisation doit ramener le total au chiffre de Steam en gardant l'historique des sessions.
+
+- La date de lecture du temps chez la source est enregistrée (`playtime_synced_at`).
+- Total affiché = temps de la source + durée des sessions jouées **après** cette date (une session à cheval ne compte que pour sa partie postérieure).
+- Une synchronisation remplace le temps de la source et avance la date : les sessions déjà comptées par la source sortent du calcul. Rien n'est compté deux fois, aucune session n'est supprimée.
+- Pour les temps importés avant cette version, la date retenue est celle de la migration : les anciennes sessions ne sont pas ajoutées au total.
+- Limite connue : si la source n'a pas encore pris en compte une partie au moment de la synchronisation, le total peut reculer de la durée de cette partie jusqu'à la synchronisation suivante.
+- Sans temps fourni par la source (Riot, Battle.net, Epic, jeux locaux), le total reste la somme des sessions. Une correction manuelle prime toujours.

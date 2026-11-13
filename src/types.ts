@@ -29,6 +29,9 @@ export interface GameSourceView {
   directArgs: string | null;
   directWorkingDir: string | null;
   trackedSeconds: number;
+  /** Temps joué depuis la dernière lecture du temps de la source (secondes). */
+  sinceSyncSeconds: number;
+  playtimeMinutes: number;
   drive: string | null;
 }
 
@@ -52,6 +55,7 @@ export interface Game {
   playtimeMinutes: number;
   trackedSeconds: number;
   manualPlaytimeMinutes: number | null;
+  sinceSyncSeconds: number;
   noTracking: boolean;
   lastPlayed: string | null;
   lastSessionSeconds: number | null;

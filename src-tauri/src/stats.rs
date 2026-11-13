@@ -68,7 +68,7 @@ pub fn summarize(games: &[GameView]) -> (i64, Vec<SourceTime>, Vec<TopGame>) {
     for g in &visible {
         for s in &g.sources {
             let entry = by_source.entry(s.source.source.as_str()).or_insert((s.source.source, 0, 0));
-            entry.1 += s.source.source_playtime_minutes.unwrap_or(s.tracked_seconds / 60);
+            entry.1 += s.playtime_minutes;
             entry.2 += 1;
         }
     }

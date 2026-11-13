@@ -104,6 +104,12 @@ const MIGRATIONS: &[&str] = &[
     ALTER TABLE game_sources ADD COLUMN direct_working_dir TEXT;
     ALTER TABLE games ADD COLUMN no_tracking INTEGER NOT NULL DEFAULT 0;
     "#,
+    // v3 : date de la dernière lecture du temps de jeu chez la source. Le total affiché est ce temps plus les
+    // sessions jouées depuis. Pour les temps déjà importés, la date retenue est celle de la migration.
+    r#"
+    ALTER TABLE game_sources ADD COLUMN playtime_synced_at TEXT;
+    UPDATE game_sources SET playtime_synced_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE source_playtime_minutes IS NOT NULL;
+    "#,
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

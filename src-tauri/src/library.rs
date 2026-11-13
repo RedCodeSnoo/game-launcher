@@ -188,7 +188,14 @@ fn volume_missing(s: &GameSource, drives: &DriveSnapshot) -> bool {
 }
 
 /// Intègre la liste des jeux possédés d'une source (F-BIB-01, F-HEU-01).
+///
+/// Le temps de jeu lu chez la source remplace le précédent et la date de lecture est notée : le total affiché
+/// est ce temps plus les sessions jouées depuis (voir `list_games`), sans double comptage.
 pub fn apply_owned(conn: &mut Connection, source: SourceId, owned: &[OwnedGame]) -> Result<usize> {
+    apply_owned_at(conn, source, owned, &now_iso())
+}
+
+pub fn apply_owned_at(conn: &mut Connection, source: SourceId, owned: &[OwnedGame], synced_at: &str) -> Result<usize> {
     let tx = conn.transaction()?;
     let mut added = 0;
     for o in owned {
@@ -196,16 +203,17 @@ pub fn apply_owned(conn: &mut Connection, source: SourceId, owned: &[OwnedGame])
         if let Some(existing) = db::find_source(&tx, source, &o.external_id)? {
             tx.execute(
                 "UPDATE game_sources SET owned = 1, source_playtime_minutes = COALESCE(?2, source_playtime_minutes),
+                    playtime_synced_at = CASE WHEN ?2 IS NOT NULL THEN ?4 ELSE playtime_synced_at END,
                     last_played_source = COALESCE(?3, last_played_source) WHERE id = ?1",
-                params![existing.id, o.playtime_minutes, last],
+                params![existing.id, o.playtime_minutes, last, synced_at],
             )?;
         } else {
             let game_id = insert_game(&tx, &o.title)?;
             tx.execute(
                 "INSERT INTO game_sources(id, game_id, source, external_id, installed, launch_method, launch_target,
-                    source_playtime_minutes, last_played_source, available, owned)
-                 VALUES(?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, 1, 1)",
-                params![new_id(), game_id, source.as_str(), o.external_id, o.launch_method.as_str(), o.launch_target, o.playtime_minutes, last],
+                    source_playtime_minutes, last_played_source, available, owned, playtime_synced_at)
+                 VALUES(?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, ?8, 1, 1, ?9)",
+                params![new_id(), game_id, source.as_str(), o.external_id, o.launch_method.as_str(), o.launch_target, o.playtime_minutes, last, o.playtime_minutes.map(|_| synced_at)],
             )?;
             added += 1;
         }
@@ -373,6 +381,10 @@ pub struct SourceView {
     #[serde(flatten)]
     pub source: GameSource,
     pub tracked_seconds: i64,
+    /// Temps joué depuis la dernière lecture du temps de la source (secondes) ; 0 si la source ne fournit pas de temps.
+    pub since_sync_seconds: i64,
+    /// Temps retenu pour cette source (minutes) : temps de la source + sessions depuis, ou somme des sessions.
+    pub playtime_minutes: i64,
     pub drive: Option<String>,
 }
 
@@ -400,6 +412,8 @@ pub struct GameView {
     /// Temps suivi par l'application, en secondes (affiché à part, F-HEU-05).
     pub tracked_seconds: i64,
     pub manual_playtime_minutes: Option<i64>,
+    /// Part du temps affiché jouée depuis la dernière synchronisation avec la source (secondes).
+    pub since_sync_seconds: i64,
     /// Le temps de ce jeu n'est pas suivi (logiciel qui tourne en permanence, par exemple).
     pub no_tracking: bool,
     pub last_played: Option<String>,
@@ -411,13 +425,21 @@ pub struct GameView {
 
 pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
     // Sessions agrégées par source.
-    let mut tracked: HashMap<String, (i64, Option<String>)> = HashMap::new();
+    // Dernière colonne : temps joué après la dernière lecture du temps de la source (une session à cheval
+    // sur cette date ne compte que pour sa partie postérieure).
+    let mut tracked: HashMap<String, (i64, Option<String>, i64)> = HashMap::new();
     {
-        let mut stmt = conn.prepare("SELECT game_source_id, SUM(duration_seconds), MAX(started_at) FROM play_sessions GROUP BY game_source_id")?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?)))?;
+        let mut stmt = conn.prepare(
+            "SELECT ps.game_source_id, SUM(ps.duration_seconds), MAX(ps.started_at),
+                    SUM(CASE WHEN gs.playtime_synced_at IS NULL OR ps.ended_at <= gs.playtime_synced_at THEN 0
+                             WHEN ps.started_at >= gs.playtime_synced_at THEN ps.duration_seconds
+                             ELSE MIN(ps.duration_seconds, CAST(strftime('%s', ps.ended_at) AS INTEGER) - CAST(strftime('%s', gs.playtime_synced_at) AS INTEGER)) END)
+             FROM play_sessions ps JOIN game_sources gs ON gs.id = ps.game_source_id GROUP BY ps.game_source_id",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?, r.get::<_, i64>(3)?)))?;
         for row in rows {
-            let (id, total, last) = row?;
-            tracked.insert(id, (total, last));
+            let (id, total, last, since) = row?;
+            tracked.insert(id, (total, last, since.max(0)));
         }
     }
     // Dernière session par jeu.
@@ -473,20 +495,28 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
         let manual: Option<i64> = r.get(13)?;
         let mut playtime = 0i64;
         let mut tracked_total = 0i64;
+        let mut since_sync_total = 0i64;
         let mut last_played: Option<String> = None;
         let mut views = Vec::new();
         for s in sources {
-            let (secs, last_tracked) = tracked.get(&s.id).cloned().unwrap_or((0, None));
+            let (secs, last_tracked, since) = tracked.get(&s.id).cloned().unwrap_or((0, None, 0));
             tracked_total += secs;
-            // Règle §5.2 : temps de la source s'il existe, sinon somme des sessions.
-            playtime += s.source_playtime_minutes.unwrap_or(secs / 60);
+            // Règle §5.2 et E4-13 : si la source fournit un temps, c'est lui qui fait foi ; on y ajoute seulement
+            // ce qui a été joué depuis sa dernière lecture (la prochaine synchronisation le remplacera par le
+            // chiffre de la source). Sinon, le total est la somme des sessions.
+            let (source_minutes, since) = match s.source_playtime_minutes {
+                Some(minutes) => (minutes + since / 60, since),
+                None => (secs / 60, 0),
+            };
+            playtime += source_minutes;
+            since_sync_total += since;
             for candidate in [s.last_played_source.clone(), last_tracked].into_iter().flatten() {
                 if last_played.as_deref().map_or(true, |cur| candidate.as_str() > cur) {
                     last_played = Some(candidate);
                 }
             }
             let drive = s.effective_dir().and_then(drive_letter).map(|l| format!("{l}:"));
-            views.push(SourceView { source: s, tracked_seconds: secs, drive });
+            views.push(SourceView { source: s, tracked_seconds: secs, since_sync_seconds: since, playtime_minutes: source_minutes, drive });
         }
         // Source installée et disponible en premier (c'est elle qu'on lance).
         views.sort_by_key(|v| (!(v.source.installed && v.source.available), !v.source.installed));
@@ -510,6 +540,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
             playtime_minutes: manual.unwrap_or(playtime),
             tracked_seconds: tracked_total,
             manual_playtime_minutes: manual,
+            since_sync_seconds: if manual.is_some() { 0 } else { since_sync_total },
             no_tracking: r.get(14)?,
             last_played,
             last_session_seconds: last_session.get(&id).copied(),
@@ -790,6 +821,26 @@ mod tests {
         let gamma = list.iter().find(|g| g.title == "Gamma").unwrap();
         assert!(!gamma.installed && gamma.available);
         assert_eq!(gamma.playtime_minutes, 5);
+        // Une partie jouée APRÈS l'import s'ajoute au temps de la source, sans attendre la synchronisation…
+        apply_owned_at(&mut conn, SourceId::Steam, &owned, "2026-02-01T00:00:00Z").unwrap();
+        conn.execute(
+            "INSERT INTO play_sessions(id, game_source_id, started_at, ended_at, duration_seconds) VALUES
+               ('s2', ?1, '2026-02-02T10:00:00Z', '2026-02-02T11:00:00Z', 3600),
+               ('s3', ?1, '2026-01-31T23:30:00Z', '2026-02-01T00:15:00Z', 2700)",
+            params![sid],
+        )
+        .unwrap();
+        let alpha = list_games(&conn).unwrap().into_iter().find(|g| g.title == "Alpha").unwrap();
+        assert_eq!(alpha.playtime_minutes, 120 + 60 + 15, "temps Steam + session d'après + partie postérieure de la session à cheval");
+        assert_eq!(alpha.since_sync_seconds, 4500);
+        // … puis une synchronisation remplace le tout par le chiffre de Steam : rien n'est compté deux fois
+        // et l'historique des sessions est intact.
+        let mut synced = owned.clone();
+        synced[0].playtime_minutes = Some(200);
+        apply_owned_at(&mut conn, SourceId::Steam, &synced, "2026-02-03T00:00:00Z").unwrap();
+        let alpha = list_games(&conn).unwrap().into_iter().find(|g| g.title == "Alpha").unwrap();
+        assert_eq!((alpha.playtime_minutes, alpha.since_sync_seconds), (200, 0));
+        assert_eq!(alpha.tracked_seconds, 1800 + 3600 + 2700, "les sessions sont conservées");
         // Un scan ultérieur ne supprime pas le jeu possédé non installé.
         apply_scan(&mut conn, SourceId::Steam, &[steam_game("10", "Alpha", "C:\\Steam\\common\\Alpha")], &d).unwrap();
         assert_eq!(list_games(&conn).unwrap().len(), 2);

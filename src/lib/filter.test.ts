@@ -27,6 +27,8 @@ function source(source: SourceId, over: Partial<GameSourceView> = {}): GameSourc
     directArgs: null,
     directWorkingDir: null,
     trackedSeconds: 0,
+    sinceSyncSeconds: 0,
+    playtimeMinutes: 0,
     drive: "C:",
     ...over,
   };
@@ -53,6 +55,7 @@ function game(title: string, over: Partial<Game> = {}): Game {
     playtimeMinutes: 0,
     trackedSeconds: 0,
     manualPlaytimeMinutes: null,
+    sinceSyncSeconds: 0,
     noTracking: false,
     lastPlayed: null,
     lastSessionSeconds: null,

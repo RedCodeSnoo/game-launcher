@@ -136,3 +136,8 @@ L'application finale (1.1.1) a été lancée avec un dossier de données à part
 Non vérifié à l'écran : le menu et le point vert de l'icône, l'affichage des notifications, un vrai redémarrage de Windows (voir `TODO.md`).
 
 Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure de fin, emplacement personnalisé, réglages) ont été contrôlés dans un navigateur avec le backend simulé.
+
+### Après le tag `v1.1` : calcul du temps de jeu
+
+- Total d'un jeu dont la source fournit un temps (Steam, GOG) = temps de la source + sessions jouées depuis la dernière synchronisation ; la synchronisation suivante le ramène au chiffre de la source, sans toucher à l'historique (`DECISIONS.md` D35).
+- La fiche jeu indique la part « jouée depuis la dernière synchronisation ».

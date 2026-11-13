@@ -46,6 +46,8 @@ function makeGames(count: number): Game[] {
       directArgs: null,
       directWorkingDir: null,
       trackedSeconds: tracked,
+      sinceSyncSeconds: 0,
+      playtimeMinutes: 0,
       drive,
     };
     const achTotal = source === "steam" && rand() > 0.3 ? 10 + Math.floor(rand() * 60) : 0;
@@ -69,6 +71,7 @@ function makeGames(count: number): Game[] {
       playtimeMinutes: src.sourcePlaytimeMinutes ?? Math.floor(tracked / 60),
       trackedSeconds: tracked,
       manualPlaytimeMinutes: null,
+      sinceSyncSeconds: 0,
       noTracking: false,
       lastPlayed: src.lastPlayedSource,
       lastSessionSeconds: tracked ? Math.floor(tracked / 4) : null,
