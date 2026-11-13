@@ -7,7 +7,7 @@
 | V0.3 – Steam en ligne | ✅ terminé (API à vérifier avec une vraie clé) | `v0.3.0` |
 | V0.4 – Autres launchers | ✅ terminé | `v0.4.0` |
 | V1.0 – Version complète | ✅ terminé | `v1.0.0` |
-| V1.x – GOG, Ubisoft, EA, Xbox | ✅ écrit et testé sur données d'exemple (non vérifié sur de vraies installations) | `v1.1.0` |
+| V1.x – GOG, Ubisoft, EA, Xbox | ✅ terminé (Xbox vérifié en réel ; GOG, Ubisoft, EA testés sur données d'exemple seulement) | `v1.1.0` |
 
 ## V0.1 – Socle
 
@@ -86,5 +86,6 @@ Mesures de la version finale sur cette machine : installeur de 3,2 Mo, détectio
 - Xbox / Game Pass : dossiers `XboxGames` de chaque disque (ou dossier indiqué par `.GamingRoot`), `MicrosoftGame.config`, lancement `shell:AppsFolder\<famille>!<AppId>`.
 - Epic « en ligne » : couvert sans API non officielle par le cache local du catalogue (jeux possédés et visuels, livré en V0.4). Heures et succès Epic : non faits (voir `TODO.md`).
 - Option « réduire la fenêtre au lancement d'un jeu ».
-- Aucun de ces quatre launchers n'est installé ici : modules testés sur données d'exemple uniquement.
+- Vérifié sur cette machine : Xbox détecte Minecraft Launcher (`C:\XboxGames`) avec sa commande `shell:AppsFolder\Microsoft.4297127D64EC6_8wekyb3d8bbwe!Game`. GOG, Ubisoft et EA ne sont pas installés ici : testés sur données d'exemple uniquement.
+- Version finale 1.1.0 : installeur de 3,2 Mo ; au repos, processus principal à ~40 Mo et ~0,2 % d'un cœur ; détection des 5 launchers présents en 23 ms.
 - Tests : 76 tests Rust (+1 de bout en bout), 13 tests front.
