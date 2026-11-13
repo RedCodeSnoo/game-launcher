@@ -20,6 +20,7 @@ interface Props {
   onRefresh: () => void;
   onOpen: (g: Game) => void;
   onPlay: (g: Game) => void;
+  onStop: (g: Game) => void;
   toolbarExtra?: ReactNode;
   banner?: ReactNode;
 }
@@ -114,9 +115,9 @@ export function Library(props: Props) {
             <p className="text-sm text-muted">{t("lib.emptyHint")}</p>
           </div>
         ) : view === "grid" ? (
-          <GameGrid games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} />
+          <GameGrid games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} onStop={props.onStop} />
         ) : (
-          <GameList games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} />
+          <GameList games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} onStop={props.onStop} />
         )}
       </div>
     </div>

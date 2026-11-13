@@ -117,6 +117,20 @@ pub fn do_launch(app: &AppHandle, state: &Shared, game_id: &str, source_id: Opti
     Ok(())
 }
 
+/// « Arrêter le suivi » (E1-01) : clôt la session maintenant, sans toucher aux processus du jeu.
+#[tauri::command(async)]
+pub fn stop_tracking(app: AppHandle, state: State<'_, Shared>, game_id: String) -> AppResult<()> {
+    state.tracker.stop_tracking(&state, &emitter(&app), &game_id);
+    Ok(())
+}
+
+/// « Forcer la fermeture du jeu » (E1-02) : termine ses processus puis clôt la session. Renvoie le nombre de
+/// processus terminés. Erreur `KILL_FAILED` si un processus résiste (E1-03) : la session reste alors ouverte.
+#[tauri::command(async)]
+pub fn force_close_game(app: AppHandle, state: State<'_, Shared>, game_id: String) -> AppResult<usize> {
+    Ok(state.tracker.force_close(&state, &emitter(&app), &game_id)?.killed)
+}
+
 /// Ouvre le launcher d'origine sur l'installation du jeu (F-BIB-03).
 #[tauri::command(async)]
 pub fn install_game(state: State<'_, Shared>, game_id: String) -> AppResult<()> {
@@ -312,6 +326,33 @@ pub fn get_sessions(state: State<'_, Shared>, game_id: String) -> AppResult<Vec<
 pub fn delete_session(app: AppHandle, state: State<'_, Shared>, session_id: String) -> AppResult<()> {
     state.conn().execute("DELETE FROM play_sessions WHERE id = ?1 AND active = 0", params![session_id])?;
     notify_library(&app);
+    Ok(())
+}
+
+/// Corrige l'heure de fin d'une session terminée (E1-04) ; la durée est recalculée.
+#[tauri::command(async)]
+pub fn update_session(app: AppHandle, state: State<'_, Shared>, session_id: String, ended_at: String) -> AppResult<()> {
+    set_session_end(&state.conn(), &session_id, &ended_at, chrono::Utc::now())?;
+    notify_library(&app);
+    Ok(())
+}
+
+pub fn set_session_end(conn: &rusqlite::Connection, session_id: &str, ended_at: &str, now: chrono::DateTime<chrono::Utc>) -> AppResult<()> {
+    use chrono::{DateTime, SecondsFormat, Utc};
+    use rusqlite::OptionalExtension;
+    let row: Option<(String, bool)> = conn.query_row("SELECT started_at, active FROM play_sessions WHERE id = ?1", params![session_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    let (started_at, active) = row.ok_or_else(|| AppError::new("SESSION_NOT_FOUND", session_id))?;
+    let bad = || AppError::new("BAD_SESSION_END", ended_at);
+    let end: DateTime<Utc> = DateTime::parse_from_rfc3339(ended_at).map_err(|_| bad())?.with_timezone(&Utc);
+    let start: DateTime<Utc> = DateTime::parse_from_rfc3339(&started_at).map_err(|_| bad())?.with_timezone(&Utc);
+    // La fin doit suivre le début, ne pas être dans le futur, et la session ne doit plus être en cours.
+    if active || end <= start || end > now + chrono::Duration::seconds(60) {
+        return Err(bad());
+    }
+    conn.execute(
+        "UPDATE play_sessions SET ended_at = ?2, duration_seconds = ?3 WHERE id = ?1",
+        params![session_id, end.to_rfc3339_opts(SecondsFormat::Secs, true), (end - start).num_seconds()],
+    )?;
     Ok(())
 }
 
@@ -775,4 +816,46 @@ pub fn merge_games(app: AppHandle, state: State<'_, Shared>, keep: String, other
 pub fn dismiss_merge(state: State<'_, Shared>, title: String) -> AppResult<()> {
     library::dismiss_merge(&state.conn(), &title)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn library_with_session() -> rusqlite::Connection {
+        let conn = db::open_in_memory().unwrap();
+        conn.execute_batch(
+            "INSERT INTO games(id, title, sort_title, added_at) VALUES('g', 'G', 'g', '2026-01-01T00:00:00Z');
+             INSERT INTO game_sources(id, game_id, source, external_id, launch_method, launch_target) VALUES('s', 'g', 'local', 'x', 'exe', 'x');
+             INSERT INTO play_sessions(id, game_source_id, started_at, ended_at, duration_seconds, active) VALUES
+               ('done', 's', '2026-01-01T10:00:00Z', '2026-01-01T18:00:00Z', 28800, 0),
+               ('live', 's', '2026-01-02T10:00:00Z', '2026-01-02T10:05:00Z', 300, 1);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn session_end_can_be_corrected_and_duration_follows() {
+        let conn = library_with_session();
+        let now = chrono::DateTime::parse_from_rfc3339("2026-01-03T00:00:00Z").unwrap().with_timezone(&chrono::Utc);
+        // Session restée ouverte 8 h : l'utilisateur la ramène à 1 h 30 (heure locale avec décalage).
+        set_session_end(&conn, "done", "2026-01-01T12:30:00+01:00", now).unwrap();
+        let (end, duration): (String, i64) = conn.query_row("SELECT ended_at, duration_seconds FROM play_sessions WHERE id = 'done'", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((end.as_str(), duration), ("2026-01-01T11:30:00Z", 5400));
+    }
+
+    #[test]
+    fn invalid_session_ends_are_refused() {
+        let conn = library_with_session();
+        let now = chrono::DateTime::parse_from_rfc3339("2026-01-03T00:00:00Z").unwrap().with_timezone(&chrono::Utc);
+        let code = |id: &str, end: &str| set_session_end(&conn, id, end, now).unwrap_err().code;
+        assert_eq!(code("done", "2026-01-01T09:00:00Z"), "BAD_SESSION_END", "fin avant le début");
+        assert_eq!(code("done", "2026-02-01T09:00:00Z"), "BAD_SESSION_END", "fin dans le futur");
+        assert_eq!(code("done", "hier"), "BAD_SESSION_END");
+        assert_eq!(code("live", "2026-01-02T11:00:00Z"), "BAD_SESSION_END", "session encore en cours");
+        assert_eq!(code("absente", "2026-01-02T11:00:00Z"), "SESSION_NOT_FOUND");
+        let duration: i64 = conn.query_row("SELECT duration_seconds FROM play_sessions WHERE id = 'done'", [], |r| r.get(0)).unwrap();
+        assert_eq!(duration, 28800, "rien n'a été modifié");
+    }
 }

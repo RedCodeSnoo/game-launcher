@@ -1,6 +1,6 @@
 // Fiche d'un jeu : bannière, bouton Jouer, temps de jeu, onglets Succès / Sessions / Infos / Paramètres.
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, Download, Eye, EyeOff, FolderOpen, HardDrive, Heart, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Download, Eye, EyeOff, FolderOpen, HardDrive, Heart, Pencil, Play, Square, Trash2, X, XOctagon } from "lucide-react";
 import { api, imageUrl, pickFile } from "../api";
 import { errorMessage, SOURCE_LABELS, t } from "../i18n";
 import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
@@ -16,6 +16,10 @@ interface Props {
   isRunning: boolean;
   onBack: () => void;
   onPlay: (game: Game) => void;
+  /** « Arrêter le suivi » : clôt la session sans fermer le jeu (E1-01). */
+  onStop: (game: Game) => void;
+  /** « Forcer la fermeture du jeu » (E1-02). */
+  onForceClose: (game: Game) => void;
   /** Contenu de l'onglet Succès (fourni par l'application). */
   achievements?: ReactNode;
   /** Réglages supplémentaires de l'onglet Paramètres (jaquette, fiche…). */
@@ -33,9 +37,30 @@ function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: Re
   );
 }
 
+/** Valeur d'un champ `datetime-local` (heure locale) pour une date ISO. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function SessionsTab({ game }: { game: Game }) {
   const toasts = useToasts();
   const [sessions, setSessions] = useState<Session[] | null>(null);
+  const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const saveEnd = async () => {
+    if (!editing) return;
+    const date = new Date(editing.value);
+    if (Number.isNaN(date.getTime())) return toasts.error("Date invalide.");
+    try {
+      await api.updateSession(editing.id, date.toISOString());
+      setEditing(null);
+      toasts.success("Heure de fin corrigée");
+      await load();
+    } catch (e) {
+      toasts.error(errorMessage(e));
+    }
+  };
   const load = useCallback(() => api.getSessions(game.id).then(setSessions).catch((e) => toasts.error(errorMessage(e))), [game.id, toasts]);
   // `trackedSeconds` change quand une session se termine : on recharge alors l'historique.
   useEffect(() => void load(), [load, game.trackedSeconds]);
@@ -59,14 +84,45 @@ function SessionsTab({ game }: { game: Game }) {
         {sessions.map((s) => (
           <tr key={s.id} className="border-t border-line">
             <td className="py-2">{formatDateTime(s.startedAt)}</td>
-            <td className="py-2">{s.active ? <span className="font-medium text-ok">{t("game.running")}</span> : formatDateTime(s.endedAt)}</td>
+            <td className="py-2">
+              {s.active ? (
+                <span className="font-medium text-ok">{t("game.running")}</span>
+              ) : editing?.id === s.id ? (
+                <span className="flex items-center gap-1.5">
+                  <input
+                    type="datetime-local"
+                    aria-label="Heure de fin de la session"
+                    className="h-8 rounded-md border border-line bg-bg px-2 text-sm"
+                    value={editing.value}
+                    min={toLocalInput(s.startedAt)}
+                    onChange={(e) => setEditing({ id: s.id, value: e.target.value })}
+                    onKeyDown={(e) => e.key === "Enter" && void saveEnd()}
+                    autoFocus
+                  />
+                  <button onClick={() => void saveEnd()} className="text-ok hover:brightness-125" aria-label="Enregistrer l'heure de fin" title="Enregistrer">
+                    <Check size={16} />
+                  </button>
+                  <button onClick={() => setEditing(null)} className="text-muted hover:text-fg" aria-label="Annuler" title="Annuler">
+                    <X size={16} />
+                  </button>
+                </span>
+              ) : (
+                formatDateTime(s.endedAt)
+              )}
+            </td>
             <td className="py-2 tabular-nums">{formatSeconds(s.durationSeconds)}</td>
             <td className="py-2 text-muted">{SOURCE_LABELS[s.source]}</td>
             <td className="py-2 text-muted">{s.origin === "detected" ? "Détectée" : "Lancée depuis l'app"}</td>
             <td className="py-2 text-right">
+              {!s.active && editing?.id !== s.id && (
+                <button onClick={() => setEditing({ id: s.id, value: toLocalInput(s.endedAt) })} className="mr-3 text-muted hover:text-fg" aria-label="Modifier l'heure de fin" title="Modifier l'heure de fin">
+                  <Pencil size={14} />
+                </button>
+              )}
               {!s.active && (
                 <button
                   onClick={async () => {
+                    if (!window.confirm("Supprimer cette session de l'historique ?")) return;
                     await api.deleteSession(s.id);
                     await load();
                   }}
@@ -262,7 +318,7 @@ function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; o
   );
 }
 
-export function GameDetail({ game, isRunning, onBack, onPlay, achievements, extraSettings, headerExtra }: Props) {
+export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClose, achievements, extraSettings, headerExtra }: Props) {
   const toasts = useToasts();
   const [tab, setTab] = useState<DetailTab>("achievements");
   const unavailable = game.installed && !game.available;
@@ -312,6 +368,16 @@ export function GameDetail({ game, isRunning, onBack, onPlay, achievements, extr
             <span className="inline-flex h-11 items-center gap-2 rounded-md bg-ok/20 px-6 text-base font-semibold text-ok">
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-ok" /> {t("game.running")}
             </span>
+          ) : null}
+          {isRunning ? (
+            <>
+              <Button onClick={() => onStop(game)} title="Clôt la session maintenant, sans fermer le jeu">
+                <Square size={14} className="fill-current" /> Arrêter le suivi
+              </Button>
+              <Button variant="danger" onClick={() => onForceClose(game)} title="Termine les processus du jeu puis clôt la session">
+                <XOctagon size={16} /> Forcer la fermeture du jeu
+              </Button>
+            </>
           ) : unavailable ? (
             <span className="inline-flex h-11 items-center gap-2 rounded-md border border-line bg-panel2 px-5 text-base font-semibold text-muted" title="Rebranchez le disque puis cliquez sur Actualiser">
               <HardDrive size={18} /> {t("game.unavailableLong")}

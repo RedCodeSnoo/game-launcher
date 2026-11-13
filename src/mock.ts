@@ -153,6 +153,18 @@ Object.assign(mockHandlers, {
     return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected" }));
   },
   delete_session: () => undefined,
+  update_session: () => notify(),
+  stop_tracking: (a: Args) => {
+    running = running.filter((id) => id !== a.gameId);
+    mockEmit("running-changed", running);
+  },
+  force_close_game: (a: Args) => {
+    // Démonstration : un jeu sur deux « résiste » pour montrer le message d'erreur.
+    if (String(a.gameId).length % 2 === 0) throw { code: "KILL_FAILED", detail: "vgc.exe" };
+    running = running.filter((id) => id !== a.gameId);
+    mockEmit("running-changed", running);
+    return 2;
+  },
   update_game: (a: Args) => {
     const patch = a.patch as Record<string, unknown>;
     mockState.games = mockState.games.map((g) => {

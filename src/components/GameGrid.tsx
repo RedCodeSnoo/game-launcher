@@ -1,7 +1,7 @@
 // Grille de jaquettes et vue liste, toutes deux virtualisées (fluide au-delà de 1 000 jeux, §6.1).
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Download, HardDrive, Heart, Play } from "lucide-react";
+import { Download, HardDrive, Heart, Play, Square } from "lucide-react";
 import { Cover, SourceBadge } from "./Cover";
 import { t } from "../i18n";
 import { formatMinutes, formatRelative, percent } from "../lib/format";
@@ -12,6 +12,8 @@ interface Props {
   running: Set<string>;
   onOpen: (game: Game) => void;
   onPlay: (game: Game) => void;
+  /** « Arrêter le suivi » d'un jeu en cours (E1-01). */
+  onStop: (game: Game) => void;
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -35,7 +37,7 @@ function stateLabel(game: Game, isRunning: boolean): string {
   return t("game.installed");
 }
 
-const Card = memo(function Card({ game, isRunning, onOpen, onPlay }: { game: Game; isRunning: boolean; onOpen: Props["onOpen"]; onPlay: Props["onPlay"] }) {
+const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { game: Game; isRunning: boolean; onOpen: Props["onOpen"]; onPlay: Props["onPlay"]; onStop: Props["onStop"] }) {
   const unavailable = game.installed && !game.available;
   return (
     <div className="group relative flex min-w-0 flex-col">
@@ -72,6 +74,17 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay }: { game: Gam
           {game.installed ? <Play size={18} className="ml-0.5 fill-current" /> : <Download size={18} />}
         </button>
       )}
+      {isRunning && (
+        <button
+          onClick={() => onStop(game)}
+          tabIndex={-1}
+          aria-label={`Arrêter le suivi de ${game.title}`}
+          title="Arrêter le suivi (le jeu n'est pas fermé)"
+          className="absolute right-2 top-[calc(100%-5.25rem)] hidden h-10 w-10 items-center justify-center rounded-full bg-panel text-fg shadow-lg ring-1 ring-line hover:bg-danger hover:text-white group-hover:flex"
+        >
+          <Square size={15} className="fill-current" />
+        </button>
+      )}
       <div className="mt-1.5 h-9 px-0.5">
         <p className="truncate text-[13px] font-medium" title={game.title}>
           {game.title}
@@ -85,7 +98,7 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay }: { game: Gam
 const GAP = 16;
 const MIN_CARD = 148;
 
-export function GameGrid({ games, running, onOpen, onPlay }: Props) {
+export function GameGrid({ games, running, onOpen, onPlay, onStop }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const cols = Math.max(1, Math.floor((width + GAP) / (MIN_CARD + GAP)));
@@ -106,7 +119,7 @@ export function GameGrid({ games, running, onOpen, onPlay }: Props) {
               style={{ top: row.start, height: rowHeight, gap: GAP, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
             >
               {games.slice(row.index * cols, row.index * cols + cols).map((game) => (
-                <Card key={game.id} game={game} isRunning={running.has(game.id)} onOpen={onOpen} onPlay={onPlay} />
+                <Card key={game.id} game={game} isRunning={running.has(game.id)} onOpen={onOpen} onPlay={onPlay} onStop={onStop} />
               ))}
             </div>
           ))}
@@ -117,7 +130,7 @@ export function GameGrid({ games, running, onOpen, onPlay }: Props) {
 
 const ROW_HEIGHT = 52;
 
-export function GameList({ games, running, onOpen, onPlay }: Props) {
+export function GameList({ games, running, onOpen, onPlay, onStop }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({ count: games.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_HEIGHT, overscan: 8 });
   return (
@@ -167,17 +180,31 @@ export function GameList({ games, running, onOpen, onPlay }: Props) {
               <span className="text-sm tabular-nums">{game.playtimeMinutes > 0 ? formatMinutes(game.playtimeMinutes) : "–"}</span>
               <span className="text-sm text-muted">{formatRelative(game.lastPlayed)}</span>
               <span className="text-sm tabular-nums text-muted">{game.achTotal > 0 ? `${game.achUnlocked}/${game.achTotal} · ${percent(game.achUnlocked, game.achTotal)} %` : "–"}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPlay(game);
-                }}
-                disabled={unavailable || isRunning}
-                aria-label={game.installed ? t("game.play") : t("game.install")}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-accent hover:text-accent-fg disabled:opacity-30"
-              >
-                {game.installed ? <Play size={15} className="ml-0.5 fill-current" /> : <Download size={15} />}
-              </button>
+              {isRunning ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStop(game);
+                  }}
+                  aria-label={`Arrêter le suivi de ${game.title}`}
+                  title="Arrêter le suivi (le jeu n'est pas fermé)"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-ok hover:bg-danger hover:text-white"
+                >
+                  <Square size={13} className="fill-current" />
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlay(game);
+                  }}
+                  disabled={unavailable}
+                  aria-label={game.installed ? t("game.play") : t("game.install")}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-accent hover:text-accent-fg disabled:opacity-30"
+                >
+                  {game.installed ? <Play size={15} className="ml-0.5 fill-current" /> : <Download size={15} />}
+                </button>
+              )}
             </div>
           );
         })}

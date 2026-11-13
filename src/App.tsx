@@ -157,6 +157,36 @@ function Shell() {
     [toasts],
   );
 
+  // E1-01 : clôt la session sans toucher au jeu.
+  const stopTracking = useCallback(
+    async (game: Game) => {
+      try {
+        await api.stopTracking(game.id);
+        toasts.info(`${game.title} : suivi arrêté, session enregistrée.`);
+      } catch (e) {
+        toasts.error(`${game.title} : ${errorMessage(e)}`);
+      }
+    },
+    [toasts],
+  );
+
+  // E1-02/03 : ferme les processus du jeu après confirmation ; en cas d'échec, propose d'arrêter seulement le suivi.
+  const forceClose = useCallback(
+    async (game: Game) => {
+      if (!window.confirm(`Forcer la fermeture de « ${game.title} » ?\n\nLes processus du jeu seront terminés immédiatement. Toute progression non sauvegardée sera perdue.`)) return;
+      try {
+        const killed = await api.forceCloseGame(game.id);
+        toasts.success(killed > 0 ? `${game.title} : jeu fermé (${killed} processus), session enregistrée.` : `${game.title} : aucun processus à fermer, session enregistrée.`);
+      } catch (e) {
+        const detail = typeof e === "object" && e !== null && "detail" in e ? String((e as { detail: unknown }).detail) : "";
+        const message = `${errorMessage(e)}${detail ? `\nProcessus restants : ${detail}` : ""}`;
+        toasts.error(`${game.title} : ${message}`);
+        if (window.confirm(`${message}\n\nArrêter quand même le suivi du temps de jeu ? (le jeu n'est pas fermé)`)) await stopTracking(game);
+      }
+    },
+    [toasts, stopTracking],
+  );
+
   const openGame = useMemo(() => games.find((g) => g.id === openGameId) ?? null, [games, openGameId]);
   const closeGame = useCallback(() => setOpenGameId(null), []);
 
@@ -198,6 +228,8 @@ function Shell() {
             isRunning={running.has(openGame.id)}
             onBack={closeGame}
             onPlay={play}
+            onStop={stopTracking}
+            onForceClose={forceClose}
             achievements={<AchievementsTab game={openGame} />}
             extraSettings={<MetadataSettings game={openGame} />}
             headerExtra={<CollectionsMenu game={openGame} collections={collections} />}
@@ -221,6 +253,7 @@ function Shell() {
             onRefresh={() => void api.refreshLibrary()}
             onOpen={(g) => setOpenGameId(g.id)}
             onPlay={play}
+            onStop={stopTracking}
             toolbarExtra={
               <>
                 {openCollection && <CollectionActions collection={openCollection} onDeleted={() => setSection({ kind: "all" })} />}
