@@ -1,0 +1,29 @@
+{
+	"FormatVersion": 0,
+	"bIsIncompleteInstall": false,
+	"LaunchCommand": "",
+	"LaunchExecutable": "FortniteGame/Binaries/Win64/FortniteLauncher.exe",
+	"ManifestLocation": "C:\\Program Files\\Epic Games\\Fortnite\\.egstore",
+	"bIsApplication": true,
+	"bIsExecutable": true,
+	"bIsManaged": false,
+	"bNeedsValidation": false,
+	"bRequiresAuth": true,
+	"bCanRunOffline": false,
+	"AppCategories": [
+		"public",
+		"games",
+		"applications"
+	],
+	"DisplayName": "Fortnite",
+	"InstallationGuid": "43B2E69147302717637DB09AD2AE5B22",
+	"InstallLocation": "C:\\Program Files\\Epic Games\\Fortnite",
+	"InstallSize": 1,
+	"CatalogNamespace": "fn",
+	"CatalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+	"AppName": "Fortnite",
+	"AppVersionString": "++Fortnite+Release-1.0",
+	"MainGameCatalogNamespace": "fn",
+	"MainGameCatalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5",
+	"MainGameAppName": "Fortnite"
+}

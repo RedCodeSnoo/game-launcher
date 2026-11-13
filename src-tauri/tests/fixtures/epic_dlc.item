@@ -1,0 +1,16 @@
+{
+	"FormatVersion": 0,
+	"bIsIncompleteInstall": false,
+	"LaunchExecutable": "",
+	"bIsApplication": false,
+	"AppCategories": [
+		"addons",
+		"games"
+	],
+	"DisplayName": "Contenu de Fortnite Sauver le monde",
+	"InstallLocation": "C:\\Program Files\\Epic Games\\Fortnite",
+	"CatalogNamespace": "fn",
+	"CatalogItemId": "aaaa",
+	"AppName": "aa31f9e94e844b299ca757d1d0b97a09",
+	"MainGameAppName": "Fortnite"
+}

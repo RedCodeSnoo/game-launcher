@@ -5,7 +5,7 @@
 | V0.1 – Socle | ✅ terminé | `v0.1.0` |
 | V0.2 – Local et heures | ✅ terminé | `v0.2.0` |
 | V0.3 – Steam en ligne | ✅ terminé (API à vérifier avec une vraie clé) | `v0.3.0` |
-| V0.4 – Autres launchers | ⏳ | |
+| V0.4 – Autres launchers | ✅ terminé | `v0.4.0` |
 | V1.0 – Version complète | ⏳ | |
 | V1.x | ⏳ | |
 
@@ -39,3 +39,12 @@
 - Vérifié sur cette machine : 19 jeux Steam, bannières et logos pour tous, 18 jaquettes depuis le cache Steam sans réseau. Coffre Windows testé (écriture, lecture, suppression).
 - Non vérifiable ici : appels authentifiés à l'API Steam (pas de clé) → `TODO.md`.
 - Tests : 46 tests Rust (+1 de bout en bout), 13 tests front.
+
+## V0.4 – Autres launchers
+
+- Epic Games : manifestes `.item` (DLC, moteurs, greffons et installations incomplètes exclus), lancement par URI `com.epicgames.launcher://`, un manifeste corrompu n'empêche pas de lire les autres. En avance sur la V1.x : bibliothèque possédée, jaquettes, bannières et descriptions lues dans le cache local du catalogue du launcher (`catcache.bin`), sans compte ni API non officielle.
+- Riot Games : `RiotClientInstalls.json` + `product_settings.yaml`, lancement `RiotClientServices.exe --launch-product=… --launch-patchline=…`.
+- Battle.net : `product.db` (protobuf, schéma vérifié sur un fichier réel), table code produit → titre et code de lancement, repli sur la famille de produit et le nom du dossier pour les variantes inconnues, lancement `Battle.net.exe --exec="launch <CODE>"`.
+- Heures : suivi maison ; succès : « Aucun succès ».
+- Vérifié sur cette machine : Fortnite, League of Legends (live et PBE), Teamfight Tactics (live et PBE), VALORANT et World of Warcraft détectés avec leurs chemins et commandes ; 293 jeux Epic possédés ; détection complète des 4 launchers en 9 ms.
+- Tests : 58 tests Rust (+1 de bout en bout), 13 tests front.

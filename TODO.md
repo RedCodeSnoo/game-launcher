@@ -4,6 +4,9 @@
 
 - **API Steam avec une vraie clé** : les analyseurs sont testés sur des réponses d'exemple et les appels suivent la documentation, mais aucun appel authentifié n'a pu être fait (pas de clé API disponible). À vérifier : Paramètres > Compte Steam, puis comparaison des heures et des succès avec le client Steam (critère §11).
 - **SteamGridDB avec une vraie clé** : même situation.
+- **Lancement réel de chaque jeu** (Steam, Epic, Riot, Battle.net) : les commandes sont construites selon le §4 mais n'ont pas été exécutées pendant le développement (voir `DECISIONS.md` D17). À essayer : un jeu par source.
+- **Battle.net** : `--exec="launch <CODE>"` ne lance le jeu que si Battle.net est déjà ouvert et connecté ; sinon il ouvre seulement le launcher. Le code de lancement de la variante `wowf` détectée ici (dossier `_forever_`) est supposé être celui de la famille (`WoW`).
+- **Riot** : Teamfight Tactics apparaît comme un produit à part (il possède son propre dossier), alors qu'il se lance en pratique depuis le client League of Legends. À masquer si gênant.
 
 ## Non fait
 

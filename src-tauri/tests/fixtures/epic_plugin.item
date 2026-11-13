@@ -1,0 +1,13 @@
+{
+	"FormatVersion": 0,
+	"bIsIncompleteInstall": false,
+	"LaunchExecutable": "",
+	"bIsApplication": true,
+	"AppCategories": [],
+	"DisplayName": "Quixel Bridge",
+	"InstallLocation": "C:\\Program Files\\Epic Games\\UE_5.7\\Engine\\Plugins\\Bridge",
+	"CatalogNamespace": "ue",
+	"CatalogItemId": "bbbb",
+	"AppName": "QuixelBridge_5.7",
+	"MainGameAppName": "UE_5.7"
+}

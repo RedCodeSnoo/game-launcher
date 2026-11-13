@@ -1,0 +1,11 @@
+{
+    "associated_client": {
+        "D:/Riot Games/League of Legends/": "D:/Riot Games/Riot Client/RiotClientServices.exe",
+        "D:/Riot Games/VALORANT/live/": "D:/Riot Games/Riot Client/RiotClientServices.exe"
+    },
+    "patchlines": {
+        "KeystoneFoundationLiveWin": "D:/Riot Games/Riot Client/RiotClientServices.exe"
+    },
+    "rc_default": "D:/Riot Games/Riot Client/RiotClientServices.exe",
+    "rc_live": "D:/Riot Games/Riot Client/RiotClientServices.exe"
+}

@@ -280,8 +280,21 @@ pub fn fetch_images(state: &AppState, game_id: &str) -> Result<bool> {
     let mut changed = false;
     let mut offline: Option<anyhow::Error> = None;
 
+    // Jeu Epic : le cache du catalogue du launcher fournit visuels et description, sans compte ni clé.
+    let epic_app: Option<String> = state
+        .conn()
+        .query_row("SELECT external_id FROM game_sources WHERE game_id = ?1 AND source = ?2 LIMIT 1", params![game_id, SourceId::Epic.as_str()], |r| r.get(0))
+        .optional()?;
+    let epic_entry = epic_app.and_then(|app| crate::providers::epic::catalog().remove(&app));
+    if let Some(e) = &epic_entry {
+        state.conn().execute(
+            "UPDATE games SET description = COALESCE(description, ?2), developer = COALESCE(developer, ?3) WHERE id = ?1",
+            params![meta.id, e.description, e.developer],
+        )?;
+    }
+
     // Jeu sans appid : tentative d'association automatique à une fiche Steam de même nom exact.
-    if meta.steam_appid.is_none() && sgdb_key.is_none() && !meta.has.iter().all(|h| *h) {
+    if meta.steam_appid.is_none() && epic_entry.is_none() && sgdb_key.is_none() && !meta.has.iter().all(|h| *h) {
         match store_search(&meta.title) {
             Ok(results) => {
                 let wanted = normalize_title(&meta.title);
@@ -310,6 +323,20 @@ pub fn fetch_images(state: &AppState, game_id: &str) -> Result<bool> {
             if bytes.is_none() && offline.is_none() {
                 match http::get_bytes(&format!("{CDN}/{appid}/{}", kind.cdn_name())) {
                     Ok(Some(data)) => bytes = Some((data, kind.cdn_name().rsplit('.').next().unwrap_or("jpg").to_string())),
+                    Ok(None) => {}
+                    Err(e) => offline = Some(e),
+                }
+            }
+        }
+        if bytes.is_none() && offline.is_none() {
+            let url = epic_entry.as_ref().and_then(|e| match kind {
+                ImageKind::Cover => e.cover_url.clone(),
+                ImageKind::Hero => e.hero_url.clone(),
+                ImageKind::Logo => e.logo_url.clone(),
+            });
+            if let Some(url) = url {
+                match http::get_bytes(&url) {
+                    Ok(Some(data)) => bytes = Some((data, "jpg".to_string())),
                     Ok(None) => {}
                     Err(e) => offline = Some(e),
                 }

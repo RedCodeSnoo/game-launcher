@@ -68,3 +68,15 @@ Les clés (API Steam, SteamGridDB) ne transitent que de l'interface vers le back
 ## D14 – Synchronisation des succès
 
 Trois appels par jeu (progression, schéma, rareté). En tâche de fond, seuls les jeux installés ou déjà joués sont synchronisés, puis uniquement ceux rejoués depuis. Les autres le sont à l'ouverture de leur fiche. Un profil privé ou une clé refusée arrête la boucle avec un message unique.
+
+## D15 – Epic : cache local plutôt qu'API non officielle
+
+Le launcher Epic garde le catalogue du compte dans `Data/Catalog/catcache.bin` (JSON en base64). On y lit, en lecture seule, les jeux possédés et leurs visuels. Cela couvre « Epic non installés » sans connexion OAuth ni API non officielle (risques du §10). Limite : le cache n'est à jour que si le launcher Epic a été ouvert récemment ; il ne contient ni heures ni succès (suivi maison).
+
+## D16 – Battle.net : codes de lancement
+
+Le cahier des charges cite `OSI` pour Diablo IV ; d'après les codes connus, `OSI` est Diablo II: Resurrected et Diablo IV est `Fen`. La table de `battlenet.rs` suit ces codes. Pour un produit inconnu, on utilise le code de sa famille (`product_family`) ou, à défaut, son code en majuscules, et le nom de son dossier comme titre.
+
+## D17 – Lancements réels non exécutés pendant le développement
+
+Les commandes de lancement sont construites et testées, mais aucun jeu réel n'a été démarré sur cette machine pendant le développement (ouvrir Steam, Riot ou Battle.net et lancer des jeux sans personne devant l'écran serait intrusif). Le lancement d'un exécutable et son suivi sont couverts par un test de bout en bout avec un processus réel.
