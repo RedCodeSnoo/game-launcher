@@ -141,3 +141,12 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 
 - Total d'un jeu dont la source fournit un temps (Steam, GOG) = temps de la source + sessions jouées depuis la dernière synchronisation ; la synchronisation suivante le ramène au chiffre de la source, sans toucher à l'historique (`DECISIONS.md` D35).
 - La fiche jeu indique la part « jouée depuis la dernière synchronisation ».
+
+## Version 1.1.1 publique
+
+- Historique Git réécrit : un seul auteur (RedCodeSnoo, adresse noreply GitHub), plus aucune ligne d'attribution automatique ; réglage `attribution` du projet pour Claude Code.
+- Temps de jeu : correction manuelle = base datée + sessions postérieures ; calcul unique du total utilisé partout (`DECISIONS.md` D36, D37). Saisies existantes migrées (dates retrouvées dans les sauvegardes quotidiennes ; vérifié sur une copie des données réelles : LoL = 2300 h + 3 h 05 jouées depuis la saisie).
+- Mises à jour automatiques signées depuis les Releases GitHub, workflow de publication, version unique dans `package.json` (D38 à D41).
+- Licence MIT, README avec captures (backend de démonstration).
+- Tests : 110 tests Rust (+4 ignorés : 3 de bout en bout, 1 de vérification sur copie de données réelles), 13 tests de l'interface.
+

@@ -1,30 +1,53 @@
 # GameLauncher
 
-Launcher de jeux unifié pour Windows : une seule bibliothèque pour Steam, Epic, Riot, Battle.net, GOG, Ubisoft, EA, Xbox et les jeux sans launcher. Voir `cahier-des-charges-launcher.md`.
+Launcher de jeux unifié pour Windows : une seule bibliothèque pour **Steam, Epic Games, Riot Games, Battle.net, GOG, Ubisoft Connect, EA app, Xbox** et les jeux sans launcher, avec un suivi automatique du temps de jeu.
 
-## Prérequis
+![Bibliothèque](docs/captures/bibliotheque.png)
 
-- Windows 10/11 x64, WebView2 (présent par défaut sur Windows 11)
-- Node.js 20+, Rust (stable, cible `x86_64-pc-windows-msvc`), outils de build C++ de Visual Studio
+## Installation
 
-## Commandes
+1. Téléchargez `GameLauncher_X.Y.Z_x64-setup.exe` dans la [dernière Release](https://github.com/RedCodeSnoo/game-launcher/releases/latest).
+2. Lancez-le (installation pour votre session, sans droits administrateur).
+
+Windows 10 ou 11 (64 bits) avec WebView2, présent par défaut sur Windows 11. L'installeur n'est pas signé par un certificat de développeur : Windows SmartScreen peut afficher un avertissement au premier lancement (« Informations complémentaires », puis « Exécuter quand même »).
+
+Ensuite, l'application se met à jour toute seule (voir plus bas).
+
+## Fonctionnalités
+
+- **Bibliothèque unifiée** : détection automatique des jeux installés (plusieurs disques, disques externes et changement de lettre compris), jeux possédés non installés (Steam avec clé API, Epic, GOG), jeux sans launcher par simple glisser-déposer d'un `.exe` ou par dossiers surveillés.
+- **Lancement** par le launcher d'origine ou par l'exécutable direct, au choix pour chaque jeu ; dossier et exécutable corrigeables quand la détection se trompe.
+- **Temps de jeu suivi automatiquement**, que le jeu soit lancé depuis GameLauncher, depuis Steam, un raccourci ou un autre launcher (observation des processus toutes les 3 s, sans droits administrateur ni injection). Historique des sessions, temps de départ saisissable à la main, temps Steam importé.
+- **Succès** Steam (avec rareté) et **statistiques** : temps par semaine et par mois, par launcher, top des jeux.
+- **Jaquettes et fiches** automatiques (cache Steam, catalogue Epic, SteamGridDB en option).
+- **Zone de notification** : GameLauncher reste actif fenêtre fermée, menu des jeux récents et du jeu en cours, démarrage avec Windows.
+- Favoris, collections, filtres et tris, thème sombre ou clair, sauvegarde et restauration.
+
+| Fiche d'un jeu | Statistiques |
+|---|---|
+| ![Fiche d'un jeu](docs/captures/fiche-jeu.png) | ![Statistiques](docs/captures/statistiques.png) |
+
+*Captures réalisées avec le backend de démonstration (données fictives).*
+
+Les clés API (Steam, SteamGridDB) sont rangées dans le Gestionnaire d'identification de Windows, jamais dans la base ni dans les sauvegardes. Les données locales sont dans `%APPDATA%\com.gamelauncher.app`.
+
+## Mises à jour automatiques
+
+GameLauncher vérifie au démarrage, puis toutes les 6 heures (même fenêtre fermée), si une nouvelle version est publiée dans les [Releases](https://github.com/RedCodeSnoo/game-launcher/releases). Si oui : notification Windows, puis bannière avec les notes de version et les boutons **Installer et redémarrer** et **Plus tard**. L'installation n'a jamais lieu pendant une partie : elle attend la fin de la session. Chaque mise à jour est signée, et l'application refuse une mise à jour dont la signature ne correspond pas.
+
+Paramètres > Mises à jour : version actuelle, recherche manuelle, option « Vérifier automatiquement ».
+
+## Développement
+
+Prérequis : Node.js 22, Rust stable (`x86_64-pc-windows-msvc`), outils de build C++ de Visual Studio.
 
 ```bash
-npm install            # dépendances de l'interface
-npm run tauri dev      # lancer l'application en développement
-npm run tauri build    # construire l'exécutable et l'installeur
-npm run check          # typage, tests de l'interface et tests Rust
-npm run dev            # interface seule dans un navigateur, avec un backend simulé
+npm install            # dépendances
+npm run tauri dev      # application en développement
+npm run dev            # interface seule dans un navigateur, avec un backend simulé (?games=1000, ?update=1)
+npm run check          # versions synchronisées, typage, tests de l'interface et tests Rust
+npm run build:local    # installeur local, sans les fichiers de mise à jour (pas besoin de la clé de signature)
 ```
-
-## Fonctionnement en arrière-plan
-
-- Fermer la fenêtre laisse GameLauncher actif dans la zone de notification (près de l'horloge) ; pour l'arrêter : clic droit sur l'icône, puis **Quitter**. Une seule instance tourne à la fois.
-- Tant qu'il tourne, GameLauncher enregistre le temps de jeu de tous les jeux de la bibliothèque, même lancés depuis Steam, un raccourci ou un autre launcher (lecture de la liste des processus toutes les 3 s, sans droits administrateur).
-- Paramètres > Arrière-plan et démarrage : démarrage avec Windows, démarrage réduit, comportement de la croix.
-- Paramètres > Suivi du temps de jeu : suivi des jeux lancés hors de l'application, durée minimale d'une session, processus à ignorer.
-- Fiche d'un jeu en cours : « Arrêter le suivi » (clôt la session sans toucher au jeu) et « Forcer la fermeture du jeu ».
-- Fiche d'un jeu > Paramètres du jeu : dossier, exécutable principal et méthode de lancement personnalisés.
 
 Tests de bout en bout du suivi avec de vrais processus (~25 s) :
 
@@ -32,12 +55,23 @@ Tests de bout en bout du suivi avec de vrais processus (~25 s) :
 cargo test --manifest-path src-tauri/Cargo.toml -- --ignored
 ```
 
-## Organisation
+### Publier une nouvelle version
 
-- `src/` : interface React (bibliothèque, fiche jeu, statistiques, paramètres)
-- `src-tauri/src/` : cœur Rust (providers, base SQLite, lancement) ; `tracker.rs` et `procs.rs` : suivi des heures par observation des processus ; `tray.rs` : zone de notification
-- `evolutions-v1.1.md` : évolutions E1 à E4 (livrées sous le tag `v1.1`)
-- `src-tauri/tests/fixtures/` : fichiers d'exemple pour les tests des parseurs
-- `PROGRESS.md`, `DECISIONS.md`, `TODO.md` : avancement, décisions, reste à faire
+Le numéro de version n'est écrit qu'à un endroit : `package.json` (`tauri.conf.json` le lit, `scripts/sync-version.mjs` le recopie dans `Cargo.toml`).
 
-Les données (base, images, journaux) sont dans `%APPDATA%\com.gamelauncher.app`.
+1. Ajoutez une section `## [X.Y.Z]` en tête de `CHANGELOG.md` (elle devient les notes de version) et commitez.
+2. `npm version X.Y.Z` : met à jour les trois fichiers, crée le commit « Version X.Y.Z » et le tag `vX.Y.Z`.
+3. `git push --follow-tags`
+
+Le workflow [`release.yml`](.github/workflows/release.yml) compile l'installeur, le signe et publie la Release avec `latest.json` ; les applications installées la proposent ensuite d'elles-mêmes. Il a besoin des secrets `TAURI_SIGNING_PRIVATE_KEY` et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` du dépôt.
+
+### Organisation
+
+- `src/` : interface React + TypeScript + Tailwind
+- `src-tauri/src/` : cœur Rust (Tauri 2) : providers par launcher, base SQLite, lancement, `tracker.rs` et `procs.rs` (suivi des processus), `playtime.rs` (calcul du temps total), `updates.rs` (mises à jour), `tray.rs` (zone de notification)
+- `src-tauri/tests/fixtures/` : fichiers d'exemple pour les tests des analyseurs
+- `cahier-des-charges-launcher.md`, `evolutions-v1.1.md` : spécifications ; `PROGRESS.md`, `DECISIONS.md`, `TODO.md` : avancement, décisions, reste à faire
+
+## Licence
+
+[MIT](LICENSE) © RedCodeSnoo
