@@ -4,3 +4,24 @@ src-tauri/target/
 src-tauri/gen/
 *.log
 .DS_Store
+
+# Secrets et données personnelles : ne jamais versionner
+.env
+.env.*
+*.key
+*.key.pub
+*.key.password.txt
+*.pem
+*.p12
+*.pfx
+.tauri/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+logs/
+backups/
+.claude/settings.local.json
+
+# Fichiers d'exemple des tests (aucune donnée personnelle)
+!src-tauri/tests/fixtures/**

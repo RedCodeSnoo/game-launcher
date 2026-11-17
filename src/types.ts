@@ -215,3 +215,19 @@ export interface ScanState {
   running: boolean;
   reports?: SourceReport[];
 }
+
+export interface UpdateAvailable {
+  version: string;
+  notes: string | null;
+  date: string | null;
+}
+
+export interface UpdateInfo {
+  currentVersion: string;
+  available: UpdateAvailable | null;
+  autoCheck: boolean;
+  /** idle, waiting-game, downloading, installing, error */
+  state: string;
+  lastCheck: string | null;
+  lastCheckFailed: boolean;
+}

@@ -111,6 +111,15 @@ export const mockHandlers: Record<string, (args: Args) => unknown> = {
 };
 
 const notify = () => mockEmit("library-updated", null);
+let mockUpdateState = "idle";
+const mockUpdate = () => ({
+  currentVersion: "1.1.1",
+  available: params.get("update") ? { version: "1.2.0", notes: "- Nouveautés de démonstration\n- Corrections", date: null } : null,
+  autoCheck: mockState.settings.auto_update_check !== "0",
+  state: mockUpdateState,
+  lastCheck: null,
+  lastCheckFailed: false,
+});
 const find = (id: unknown) => mockState.games.find((g) => g.id === id);
 let running: string[] = [];
 let folders = [{ id: "w1", path: "D:\Jeux", exists: true }];
@@ -158,6 +167,13 @@ Object.assign(mockHandlers, {
     return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected" }));
   },
   delete_session: () => undefined,
+  // Démonstration : `?update=1` simule une version disponible.
+  get_update_info: () => mockUpdate(),
+  check_for_updates: () => ({ ...mockUpdate(), lastCheck: new Date().toISOString() }),
+  install_update: () => {
+    mockUpdateState = running.length > 0 ? "waiting-game" : "downloading";
+    mockEmit("update-state", mockUpdateState);
+  },
   update_session: () => notify(),
   stop_tracking: (a: Args) => {
     running = running.filter((id) => id !== a.gameId);

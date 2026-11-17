@@ -12,6 +12,7 @@ import { Settings } from "./components/Settings";
 import { Sidebar, type Page } from "./components/Sidebar";
 import { Stats } from "./components/Stats";
 import { ToastProvider, useToasts } from "./components/Toasts";
+import { UpdateBanner } from "./components/Updates";
 import { Wizard } from "./components/Wizard";
 import { Button } from "./components/ui";
 import { errorMessage, SOURCE_LABELS, t } from "./i18n";
@@ -220,7 +221,9 @@ function Shell() {
           ) : undefined
         }
       />
-      <main className="min-w-0 flex-1">
+      <main className="flex min-w-0 flex-1 flex-col">
+        <UpdateBanner />
+        <div className="min-h-0 flex-1">
         {openGame ? (
           <GameDetail
             key={openGame.id}
@@ -266,6 +269,7 @@ function Shell() {
             banner={section.kind === "all" ? <MergeBanner games={games} suggestions={suggestions} onChanged={reload} /> : undefined}
           />
         )}
+        </div>
       </main>
       {addDialog && <AddGameDialog initialExe={addDialog.exe} onClose={() => setAddDialog(null)} />}
       {wizard && <Wizard onDone={() => setWizard(false)} />}

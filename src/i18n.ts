@@ -82,6 +82,7 @@ const fr = {
   "err.LAUNCH_FAILED": "Le lancement a échoué.",
   "err.EXE_NOT_SET": "Aucun exécutable n'est défini pour ce jeu : choisissez l'exécutable principal dans Paramètres du jeu.",
   "warn.EXE_OUTSIDE_DIR": "Attention : l'exécutable choisi est en dehors du dossier d'installation. C'est enregistré, mais vérifiez que c'est bien voulu.",
+  "err.NO_UPDATE": "Aucune mise à jour à installer.",
   "err.KILL_FAILED": "Certains processus du jeu n'ont pas pu être fermés (droits insuffisants ou protection anti-triche).",
   "err.BAD_SESSION_END": "Heure de fin invalide : elle doit être après le début de la session et ne pas être dans le futur.",
   "err.SESSION_NOT_FOUND": "Session introuvable.",

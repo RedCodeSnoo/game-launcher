@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "tauri": "tauri",
-    "check": "tsc --noEmit && vitest run && cargo test --manifest-path src-tauri/Cargo.toml"
+    "check": "node scripts/sync-version.mjs --check && tsc --noEmit && vitest run && cargo test --manifest-path src-tauri/Cargo.toml",
+    "build:local": "tauri build --config src-tauri/tauri.local.conf.json",
+    "version": "node scripts/sync-version.mjs && git add src-tauri/Cargo.toml src-tauri/Cargo.lock"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.26",

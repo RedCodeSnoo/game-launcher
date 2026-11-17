@@ -6,6 +6,7 @@ import { errorMessage, SOURCE_LABELS } from "../i18n";
 import type { SourceStatus } from "../types";
 import { SgdbForm, SteamAccountForm } from "./AccountsSection";
 import { WatchedFoldersPanel } from "./AddGameDialog";
+import { UpdateSettings } from "./Updates";
 import { useToasts } from "./Toasts";
 import { Button } from "./ui";
 
@@ -234,6 +235,10 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
           </div>
           {option("start_minimized", "Démarrer réduit dans la zone de notification", "S'applique au démarrage avec Windows : la fenêtre ne s'ouvre pas, seule l'icône apparaît.", true, !autostart)}
           </div>
+        </SettingsCard>
+
+        <SettingsCard title="Mises à jour" description="Nouvelles versions publiées sur GitHub, vérifiées et signées avant installation.">
+          <UpdateSettings toggle={(checked, onChange) => <Toggle checked={checked} label="Vérifier automatiquement les mises à jour" onChange={onChange} />} />
         </SettingsCard>
 
         <SettingsCard title="Sauvegarde" description="Heures, sessions, favoris, collections et réglages. Les clés API n'y figurent pas. Une copie automatique est faite chaque jour.">

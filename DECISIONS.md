@@ -200,3 +200,23 @@ Cause du bug « heures saisies absentes des stats par launcher » : les statisti
 
 Correction : `playtime::game_total_minutes` est la seule implémentation ; `GameView::playtime_minutes` en est le résultat et sert partout (fiche, cartes, tri, statistiques, top jeux, jeux récents de la zone de notification). Temps par launcher = somme des totaux des jeux, chaque jeu étant compté une fois pour sa source principale (la première de sa fiche : installée et disponible, celle qui est lancée). Les graphiques par semaine et par mois ne comptent que les sessions réelles (une base manuelle ou un temps importé n'a pas de date), ce qu'indique une note sous le graphique.
 
+## D38 – Mises à jour automatiques côté Rust
+
+`tauri-plugin-updater` est piloté depuis le Rust, pas depuis l'interface : fenêtre fermée, la vue web est déchargée (D32), or la vérification doit continuer en arrière-plan. Vérification 30 s après le démarrage puis toutes les 6 h ; option « Vérifier automatiquement » (activée par défaut). Une version trouvée déclenche une notification Windows (une fois par version) et une bannière. « Installer et redémarrer » attend la fin de la partie en cours avant de télécharger ; un dernier battement des sessions est écrit juste avant que l'installeur ferme l'application. Sans connexion, l'échec est seulement journalisé. `tauri-plugin-process` est enregistré ; le redémarrage utilise `AppHandle::restart` (sous Windows, l'installeur relance l'application lui-même).
+
+Nom du dépôt : `game-launcher` (kebab-case de GameLauncher). Adresse : `https://github.com/RedCodeSnoo/game-launcher/releases/latest/download/latest.json`.
+
+## D39 – Clé de signature
+
+Paire générée par `tauri signer generate` avec un mot de passe aléatoire. Clé privée et mot de passe hors du dépôt, dans `%USERPROFILE%\.tauri\` (`game-launcher.key`, `game-launcher.key.password.txt`) ; clé publique dans `tauri.conf.json`. Les deux secrets GitHub sont `TAURI_SIGNING_PRIVATE_KEY` (contenu de la clé) et `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Le `.gitignore` exclut `*.key`, `.tauri/`, `.env`, les bases SQLite, journaux et sauvegardes. Sans cette clé, aucune mise à jour ne peut plus être publiée pour les versions déjà installées.
+
+Compilation locale sans la clé : `npm run build:local` (désactive les artefacts de mise à jour).
+
+## D40 – Une seule source pour le numéro de version
+
+`package.json` fait foi. `tauri.conf.json` le lit directement (`"version": "../package.json"`) ; `scripts/sync-version.mjs` le recopie dans `Cargo.toml` et `Cargo.lock`, et vérifie la cohérence (`--check`, lancé par `npm run check` et par le workflow, qui compare aussi au tag). `npm version X.Y.Z` appelle le script, crée le commit « Version X.Y.Z » et le tag `vX.Y.Z`. Les notes de version viennent de `CHANGELOG.md`.
+
+## D41 – Workflow de publication
+
+`.github/workflows/release.yml`, déclenché par un tag `v*`, sur `windows-latest` : contrôle des versions, tests de l'interface, puis `tauri-apps/tauri-action` (compilation, signature, Release publiée avec l'installeur, sa signature et `latest.json`). Les tests Rust ne tournent pas en CI : plusieurs dépendent de la machine (coffre Windows, processus réels, disques) ; ils sont lancés localement avant chaque commit (`npm run check`).
+

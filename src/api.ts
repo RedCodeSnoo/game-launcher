@@ -1,7 +1,7 @@
 // Passerelle vers le backend. Hors Tauri (navigateur, `npm run dev`), un backend simulé prend le relais.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Accounts, Achievement, Candidate, Collection, Game, GamePatch, MergeSuggestion, ScanState, Session, SourceId, SourcePatch, SourceStatus, Stats, StoreMatch, WatchedFolder } from "./types";
+import type { Accounts, Achievement, Candidate, Collection, Game, GamePatch, MergeSuggestion, ScanState, Session, SourceId, SourcePatch, SourceStatus, Stats, StoreMatch, UpdateInfo, WatchedFolder } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -90,6 +90,9 @@ export const api = {
   getMergeSuggestions: () => call<MergeSuggestion[]>("get_merge_suggestions"),
   mergeGames: (keep: string, others: string[]) => call<void>("merge_games", { keep, others }),
   dismissMerge: (title: string) => call<void>("dismiss_merge", { title }),
+  getUpdateInfo: () => call<UpdateInfo>("get_update_info"),
+  checkForUpdates: () => call<UpdateInfo>("check_for_updates"),
+  installUpdate: () => call<void>("install_update"),
 };
 
 /** Sélecteur de fichier natif (exécutable, image…). */

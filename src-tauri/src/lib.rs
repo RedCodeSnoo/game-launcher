@@ -22,6 +22,7 @@ pub mod sync;
 pub mod system;
 pub mod tracker;
 pub mod tray;
+pub mod updates;
 pub mod vdf;
 
 use state::{AppState, Shared};
@@ -93,6 +94,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main_window(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![system::AUTOSTART_ARG])))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
@@ -119,6 +122,7 @@ pub fn run() {
             let start_minimized = autostarted && db::get_setting(&conn, "start_minimized").as_deref() != Some("0");
             let state: Shared = Arc::new(AppState::new(conn, data_dir));
             app.manage(state.clone());
+            app.manage(updates::Updates::default());
             let emit = commands::emitter(app.handle());
 
             // Zone de notification (E3-01), puis fenêtre, sauf démarrage réduit avec Windows (E3-06).
@@ -143,6 +147,12 @@ pub fn run() {
             {
                 let (tracker, state, emit) = (state.tracker.clone(), state.clone(), emit.clone());
                 std::thread::spawn(move || tracker.run_loop(state, emit));
+            }
+
+            // Mises à jour : au démarrage puis toutes les 6 h, fenêtre ouverte ou non.
+            {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || updates::run_loop(handle));
             }
 
             // Branchement ou débranchement d'un disque (F-EXT-03/04).
@@ -210,6 +220,9 @@ pub fn run() {
             commands::set_game_collection,
             commands::get_merge_suggestions,
             commands::merge_games,
+            commands::get_update_info,
+            commands::check_for_updates,
+            commands::install_update,
             commands::dismiss_merge,
         ])
         .build(tauri::generate_context!())

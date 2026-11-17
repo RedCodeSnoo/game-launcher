@@ -720,6 +720,7 @@ const UI_SETTINGS: &[&str] = &[
     "min_session_secs",
     "notify_detected",
     "tracking_exclusions",
+    "auto_update_check",
 ];
 
 #[tauri::command(async)]
@@ -881,6 +882,28 @@ pub fn merge_games(app: AppHandle, state: State<'_, Shared>, keep: String, other
 pub fn dismiss_merge(state: State<'_, Shared>, title: String) -> AppResult<()> {
     library::dismiss_merge(&state.conn(), &title)?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Mises à jour automatiques
+// ---------------------------------------------------------------------------
+
+#[tauri::command(async)]
+pub fn get_update_info(app: AppHandle) -> crate::updates::UpdateInfo {
+    crate::updates::info(&app)
+}
+
+/// « Rechercher des mises à jour ». Hors ligne : pas d'erreur, `lastCheckFailed` vaut vrai.
+#[tauri::command(async)]
+pub fn check_for_updates(app: AppHandle) -> crate::updates::UpdateInfo {
+    let _ = crate::updates::check(&app);
+    crate::updates::info(&app)
+}
+
+/// « Installer et redémarrer » : attend la fin d'une partie en cours avant d'installer.
+#[tauri::command(async)]
+pub fn install_update(app: AppHandle) -> AppResult<()> {
+    crate::updates::install(&app)
 }
 
 #[cfg(test)]
