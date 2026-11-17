@@ -166,3 +166,12 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Page Statistiques : 4 tuiles, grille d'activité (12 mois ou année, survol avec jaquettes, clic = sessions), barres par semaine / mois, répartitions par launcher et par genre, top jeux, carte des habitudes 7 × 24, records, succès, badges ; périodes et filtres. Grille aussi dans la fiche de chaque jeu.
 - Tests : 11 tests des jours et séries (bascule, prorata, fuseau fixe, heure d'été dans les deux sens, jokers, seuil, reconstruction, 3 ans d'historique) et 6 tests de la page (périodes, filtres, genres, habitudes, records, badges, grille, 3 ans < 300 ms). Total : 128 tests Rust, 32 tests de l'interface.
 - Vérifié : page complète en 16 ms (release, 3 ans d'historique) ; sur une copie des données réelles, série de 5 jours et page calculée en 14 ms ; page contrôlée dans les 10 thèmes.
+
+## V1.4 – Organisation (`v1.4.0`)
+
+- Accueil (« Continuer à jouer », récents, série, succès récents, à jouer ensuite, nouveautés).
+- Statuts et page Backlog en colonnes (glisser-déposer), filtre par statut, tri par note.
+- Note sur 10, notes texte, journal de session (option) et notes dans l'historique.
+- Recherche rapide Ctrl+K, roulette « Je sais pas à quoi jouer », collections par glisser-déposer et collections automatiques, taille des jaquettes et vue en bandeaux.
+- Tests : 5 tests d'organisation (collections automatiques, roulette, recherche floue, classement) dont un qui a révélé un bug corrigé (bonus de classement appliqué à des titres sans correspondance), 1 test Rust (statut, note, notes). Total : 129 tests Rust, 37 tests de l'interface.
+- Vérifié visuellement : accueil, backlog, Ctrl+K, roulette, vue en bandeaux dans Nuit à Kyoto et Sakura ; barre d'outils et colonnes ajustées.

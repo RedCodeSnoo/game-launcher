@@ -1,7 +1,9 @@
 // Écran principal : barre du haut (recherche, vue, Actualiser) et grille ou liste des jeux.
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import { LayoutGrid, List, RefreshCw, Search, X } from "lucide-react";
-import { GameGrid, GameList } from "./GameGrid";
+import { GalleryHorizontalEnd, LayoutGrid, List, RefreshCw, Search, X } from "lucide-react";
+import { GameBanners, GameGrid, GameList } from "./GameGrid";
+
+export type LibraryView = "grid" | "list" | "banners";
 import { t } from "../i18n";
 import { applyFilters, type Filters, type Section } from "../lib/filter";
 import type { Game } from "../types";
@@ -15,8 +17,10 @@ interface Props {
   title: string;
   filters: Filters;
   onFilters: (f: Filters) => void;
-  view: "grid" | "list";
-  onView: (v: "grid" | "list") => void;
+  view: LibraryView;
+  onView: (v: LibraryView) => void;
+  coverSize: number;
+  onCoverSize: (px: number) => void;
   onRefresh: () => void;
   onOpen: (g: Game) => void;
   onPlay: (g: Game) => void;
@@ -84,6 +88,19 @@ export function Library(props: Props) {
           )}
         </label>
         {props.toolbarExtra}
+        {view === "grid" && (
+          <input
+            type="range"
+            min={110}
+            max={240}
+            step={10}
+            value={props.coverSize}
+            onChange={(e) => props.onCoverSize(Number(e.target.value))}
+            className="w-24 accent-[var(--accent)]"
+            aria-label="Taille des jaquettes"
+            title="Taille des jaquettes"
+          />
+        )}
         <div className="flex gap-1">
           <IconButton label={t("lib.grid")} active={view === "grid"} onClick={() => props.onView("grid")}>
             <LayoutGrid size={16} />
@@ -91,15 +108,13 @@ export function Library(props: Props) {
           <IconButton label={t("lib.list")} active={view === "list"} onClick={() => props.onView("list")}>
             <List size={16} />
           </IconButton>
+          <IconButton label="Bandeaux" active={view === "banners"} onClick={() => props.onView("banners")}>
+            <GalleryHorizontalEnd size={16} />
+          </IconButton>
         </div>
-        <button
-          onClick={props.onRefresh}
-          disabled={props.scanning}
-          className="flex h-9 items-center gap-2 rounded-md border border-line bg-panel px-3 text-sm hover:border-accent disabled:opacity-60"
-        >
+        <IconButton label={props.scanning ? t("lib.refreshing") : t("lib.refresh")} onClick={props.onRefresh} disabled={props.scanning}>
           <RefreshCw size={15} className={props.scanning ? "animate-spin" : ""} />
-          {props.scanning ? t("lib.refreshing") : t("lib.refresh")}
-        </button>
+        </IconButton>
       </header>
       {props.banner}
       <div className="min-h-0 flex-1">
@@ -115,7 +130,9 @@ export function Library(props: Props) {
             <p className="text-sm text-muted">{t("lib.emptyHint")}</p>
           </div>
         ) : view === "grid" ? (
-          <GameGrid games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} onStop={props.onStop} />
+          <GameGrid games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} onStop={props.onStop} coverSize={props.coverSize} />
+        ) : view === "banners" ? (
+          <GameBanners games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} onStop={props.onStop} />
         ) : (
           <GameList games={shown} running={props.running} onOpen={props.onOpen} onPlay={props.onPlay} onStop={props.onStop} />
         )}

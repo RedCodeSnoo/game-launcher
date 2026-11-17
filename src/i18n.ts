@@ -4,6 +4,7 @@ import type { AppError, SourceId } from "./types";
 
 const fr = {
   "app.name": "GameLauncher",
+  "nav.library": "Bibliothèque",
   "nav.all": "Tous les jeux",
   "nav.installed": "Installés",
   "nav.favorites": "Favoris",

@@ -2,9 +2,10 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Download, HardDrive, Heart, Play, Square } from "lucide-react";
-import { Cover, SourceBadge } from "./Cover";
+import { imageUrl } from "../api";
+import { Cover, placeholderGradient, SourceBadge } from "./Cover";
 import { t } from "../i18n";
-import { formatMinutes, formatRelative, percent } from "../lib/format";
+import { formatMinutes, formatRelative, hueOf, percent } from "../lib/format";
 import type { Game } from "../types";
 
 interface Props {
@@ -14,6 +15,15 @@ interface Props {
   onPlay: (game: Game) => void;
   /** « Arrêter le suivi » d'un jeu en cours (E1-01). */
   onStop: (game: Game) => void;
+  /** Largeur minimale d'une jaquette (O-08). */
+  coverSize?: number;
+}
+
+/** Une jaquette se glisse vers une collection de la barre latérale ou une colonne du backlog (O-07). */
+export function dragGame(e: React.DragEvent, game: Game) {
+  e.dataTransfer.setData("application/x-game-id", game.id);
+  e.dataTransfer.setData("text/plain", game.title);
+  e.dataTransfer.effectAllowed = "copyMove";
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -42,6 +52,8 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { g
   return (
     <div className="group relative flex min-w-0 flex-col">
       <button
+        draggable
+        onDragStart={(e) => dragGame(e, game)}
         onClick={() => onOpen(game)}
         onDoubleClick={() => onPlay(game)}
         title={`${game.title} – ${stateLabel(game, isRunning)}`}
@@ -96,13 +108,13 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { g
 });
 
 const GAP = 16;
-const MIN_CARD = 148;
+export const DEFAULT_COVER = 148;
 
-export function GameGrid({ games, running, onOpen, onPlay, onStop }: Props) {
+export function GameGrid({ games, running, onOpen, onPlay, onStop, coverSize = DEFAULT_COVER }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const cols = Math.max(1, Math.floor((width + GAP) / (MIN_CARD + GAP)));
-  const cardWidth = width > 0 ? (width - GAP * (cols - 1)) / cols : MIN_CARD;
+  const cols = Math.max(1, Math.floor((width + GAP) / (coverSize + GAP)));
+  const cardWidth = width > 0 ? (width - GAP * (cols - 1)) / cols : coverSize;
   const rowHeight = Math.round(cardWidth * 1.5 + 42 + GAP);
   const rows = Math.ceil(games.length / cols);
   const virtualizer = useVirtualizer({ count: rows, getScrollElement: () => scrollRef.current, estimateSize: () => rowHeight, overscan: 2 });
@@ -212,3 +224,63 @@ export function GameList({ games, running, onOpen, onPlay, onStop }: Props) {
     </div>
   );
 }
+
+const BANNER_HEIGHT = 112;
+
+/** Vue « bandeaux » : une ligne large par jeu, sur son illustration. */
+export function GameBanners({ games, running, onOpen, onPlay, onStop }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({ count: games.length, getScrollElement: () => scrollRef.current, estimateSize: () => BANNER_HEIGHT + 10, overscan: 4 });
+  return (
+    <div ref={scrollRef} className="h-full overflow-y-auto px-5 pb-5">
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((row) => {
+          const game = games[row.index];
+          const isRunning = running.has(game.id);
+          const unavailable = game.installed && !game.available;
+          const art = imageUrl(game.heroPath) ?? imageUrl(game.coverPath);
+          return (
+            <div key={game.id} className="group absolute left-0 w-full" style={{ top: row.start, height: BANNER_HEIGHT }}>
+              <button
+                draggable
+                onDragStart={(e) => dragGame(e, game)}
+                onClick={() => onOpen(game)}
+                onDoubleClick={() => onPlay(game)}
+                className={`game-card relative flex h-full w-full items-end overflow-hidden rounded-lg text-left ring-1 ring-line transition group-hover:ring-accent ${unavailable ? "grayscale" : ""} ${!game.installed ? "opacity-60" : ""}`}
+              >
+                <span className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105" style={{ backgroundImage: art ? `url("${art}")` : placeholderGradient(hueOf(game.title), 100) }} />
+                <span className="absolute inset-0 bg-gradient-to-r from-scrim/90 via-scrim/55 to-transparent" />
+                <span className="relative flex w-full items-end gap-4 p-4">
+                  <span className="min-w-0 flex-1">
+                    <span className="font-display block truncate text-lg font-semibold text-on-scrim">{game.title}</span>
+                    <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-on-scrim/80">
+                      {game.sources.slice(0, 2).map((s) => (
+                        <SourceBadge key={s.id} source={s.source} short />
+                      ))}
+                      <span>{game.playtimeMinutes > 0 ? formatMinutes(game.playtimeMinutes) : "Jamais lancé"}</span>
+                      {game.lastPlayed && <span>· {formatRelative(game.lastPlayed).toLowerCase()}</span>}
+                      {game.achTotal > 0 && <span>· {percent(game.achUnlocked, game.achTotal)} % des succès</span>}
+                      {isRunning && <span className="font-semibold uppercase text-ok">· {t("game.running")}</span>}
+                    </span>
+                  </span>
+                </span>
+              </button>
+              {isRunning ? (
+                <button onClick={() => onStop(game)} aria-label={`Arrêter le suivi de ${game.title}`} className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-panel text-fg shadow-lg ring-1 ring-line group-hover:flex">
+                  <Square size={15} className="fill-current" />
+                </button>
+              ) : (
+                !unavailable && (
+                  <button onClick={() => onPlay(game)} aria-label={game.installed ? t("game.play") : t("game.install")} className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg group-hover:flex">
+                    {game.installed ? <Play size={18} className="ml-0.5 fill-current" /> : <Download size={18} />}
+                  </button>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

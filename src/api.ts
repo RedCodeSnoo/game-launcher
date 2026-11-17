@@ -76,6 +76,7 @@ export const api = {
   getActivity: (year?: number, gameId?: string) => call<ActivityGrid>("get_activity", { year, gameId }),
   getActivityDay: (day: string, gameId?: string) => call<DayDetail>("get_activity_day", { day, gameId }),
   getStreaks: () => call<Streaks>("get_streaks"),
+  setSessionNote: (sessionId: string, note: string) => call<void>("set_session_note", { sessionId, note }),
   getSources: () => call<SourceStatus[]>("get_sources"),
   setSourceEnabled: (source: SourceId, enabled: boolean) => call<void>("set_source_enabled", { source, enabled }),
   getSettings: () => call<Record<string, string>>("get_settings"),

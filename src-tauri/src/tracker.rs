@@ -601,6 +601,9 @@ impl Tracker {
                 return true;
             }
             let kept = finalize(&conn, &l.session_id, l.started, l.last_seen, cfg.min_session_secs);
+            if kept {
+                events.push(("session-ended", json!({ "sessionId": l.session_id, "gameId": l.game_id, "title": l.title, "seconds": l.last_seen - l.started })));
+            }
             log::info!("suivi : session de {} s pour {}{}", l.last_seen - l.started, l.title, if kept { "" } else { " (trop courte, ignorée)" });
             sessions_changed = true;
             false

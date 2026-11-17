@@ -4,14 +4,106 @@ import { ArrowLeft, Check, Download, Eye, EyeOff, FolderOpen, HardDrive, Heart, 
 import { api, imageUrl } from "../api";
 import { errorMessage, SOURCE_LABELS, t } from "../i18n";
 import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
-import type { Game, GameSourceView, Session } from "../types";
+import type { Game, GameSourceView, GameStatus, Session } from "../types";
+import { STATUSES } from "../lib/organize";
 import { ActivityGrid } from "./ActivityGrid";
 import { Cover, placeholderGradient, SourceBadge } from "./Cover";
 import { LocationSettings } from "./LocationSettings";
 import { useToasts } from "./Toasts";
 import { Button, Field, ProgressBar, Tabs, TextInput } from "./ui";
 
-export type DetailTab = "achievements" | "sessions" | "info" | "settings";
+export type DetailTab = "achievements" | "sessions" | "notes" | "info" | "settings";
+
+/** Note sur 10 : dix pastilles cliquables (un second clic sur la note actuelle l'efface). */
+function Rating({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shown = hover ?? value ?? 0;
+  return (
+    <div className="flex items-center gap-2" onMouseLeave={() => setHover(null)}>
+      <div className="flex gap-[3px]" role="radiogroup" aria-label="Ma note sur 10">
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            role="radio"
+            aria-checked={value === n}
+            aria-label={`${n} sur 10`}
+            onMouseEnter={() => setHover(n)}
+            onClick={() => onChange(value === n ? null : n)}
+            className="h-5 w-3 rounded-[3px] transition"
+            style={{ background: n <= shown ? "var(--warn)" : "var(--panel2)", boxShadow: "inset 0 0 0 1px var(--line)" }}
+          />
+        ))}
+      </div>
+      <span className="w-12 text-sm tabular-nums text-muted">{shown ? `${shown}/10` : "Noter"}</span>
+    </div>
+  );
+}
+
+function NotesTab({ game }: { game: Game }) {
+  const toasts = useToasts();
+  const [text, setText] = useState(game.notes ?? "");
+  const [saved, setSaved] = useState(true);
+  useEffect(() => {
+    if (saved) return;
+    const t = setTimeout(() => {
+      api
+        .updateGame(game.id, { notes: text })
+        .then(() => setSaved(true))
+        .catch((e) => toasts.error(errorMessage(e)));
+    }, 700);
+    return () => clearTimeout(t);
+  }, [text, saved, game.id, toasts]);
+  return (
+    <div className="flex max-w-3xl flex-col gap-2">
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setSaved(false);
+        }}
+        rows={12}
+        maxLength={20000}
+        placeholder="Vos notes sur ce jeu : où vous en êtes, astuces, codes, ce que vous en pensez…"
+        className="selectable w-full rounded-lg border border-line bg-panel p-3 text-sm leading-relaxed outline-none focus:border-accent"
+        aria-label="Notes sur le jeu"
+      />
+      <p className="text-xs text-muted">{saved ? "Enregistré automatiquement." : "Enregistrement…"}</p>
+    </div>
+  );
+}
+
+function SessionNote({ id, note, onSaved }: { id: string; note: string | null; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(note ?? "");
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        maxLength={500}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => {
+          setEditing(false);
+          if (value !== (note ?? "")) void api.setSessionNote(id, value).then(onSaved);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setValue(note ?? "");
+            setEditing(false);
+          }
+        }}
+        className="h-7 w-full rounded border border-line bg-bg px-2 text-sm"
+        aria-label="Note de la session"
+      />
+    );
+  }
+  return (
+    <button onClick={() => setEditing(true)} className={`max-w-56 truncate text-left ${note ? "text-fg" : "text-muted/60 hover:text-muted"}`} title={note ?? "Ajouter une note"}>
+      {note || "+ note"}
+    </button>
+  );
+}
 
 interface Props {
   game: Game;
@@ -86,6 +178,7 @@ function SessionsTab({ game }: { game: Game }) {
           <th className="py-2 font-medium">Durée</th>
           <th className="py-2 font-medium">Source</th>
           <th className="py-2 font-medium">Origine</th>
+          <th className="py-2 font-medium">Note</th>
           <th />
         </tr>
       </thead>
@@ -122,6 +215,7 @@ function SessionsTab({ game }: { game: Game }) {
             <td className="py-2 tabular-nums">{formatSeconds(s.durationSeconds)}</td>
             <td className="py-2 text-muted">{SOURCE_LABELS[s.source]}</td>
             <td className="py-2 text-muted">{s.origin === "detected" ? "Détectée" : "Lancée depuis l'app"}</td>
+            <td className="py-2 text-sm">{s.active ? null : <SessionNote id={s.id} note={s.note} onSaved={load} />}</td>
             <td className="py-2 text-right">
               {!s.active && editing?.id !== s.id && (
                 <button onClick={() => setEditing({ id: s.id, value: toLocalInput(s.endedAt) })} className="mr-3 text-muted hover:text-fg" aria-label="Modifier l'heure de fin" title="Modifier l'heure de fin">
@@ -399,6 +493,22 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
             <Heart size={17} className={game.favorite ? "fill-danger text-danger" : ""} /> {t("game.favorite")}
           </Button>
           {headerExtra}
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            <select
+              value={game.status ?? ""}
+              onChange={(e) => api.updateGame(game.id, { status: (e.target.value || null) as GameStatus | null }).catch((err) => toasts.error(errorMessage(err)))}
+              className="h-9 rounded-md border border-line bg-panel px-2 text-sm"
+              aria-label="Statut"
+            >
+              <option value="">Sans statut</option>
+              {STATUSES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.emoji} {s.label}
+                </option>
+              ))}
+            </select>
+            <Rating value={game.rating} onChange={(rating) => api.updateGame(game.id, { rating }).catch((err) => toasts.error(errorMessage(err)))} />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -430,6 +540,7 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
             { id: "achievements", label: game.achTotal > 0 ? `${t("tab.achievements")} · ${percent(game.achUnlocked, game.achTotal)} %` : t("tab.achievements") },
             { id: "sessions", label: t("tab.sessions") },
             { id: "info", label: t("tab.info") },
+            { id: "notes", label: game.notes ? "Notes ✎" : "Notes" },
             { id: "settings", label: t("tab.settings") },
           ]}
           value={tab}
@@ -439,6 +550,7 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
           {tab === "achievements" && (achievements ?? <p className="py-8 text-center text-sm text-muted">{t("game.noAchievements")}</p>)}
           {tab === "sessions" && <SessionsTab game={game} />}
           {tab === "info" && <InfoTab game={game} />}
+          {tab === "notes" && <NotesTab key={game.id} game={game} />}
           {tab === "settings" && <SettingsTab key={game.id} game={game} extra={extraSettings} onBack={onBack} />}
         </div>
       </div>

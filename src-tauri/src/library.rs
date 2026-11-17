@@ -423,6 +423,12 @@ pub struct GameView {
     pub since_sync_seconds: i64,
     /// Le temps de ce jeu n'est pas suivi (logiciel qui tourne en permanence, par exemple).
     pub no_tracking: bool,
+    /// Statut dans le backlog : `backlog`, `playing`, `finished`, `completed`, `abandoned`, `paused` (O-02).
+    pub status: Option<String>,
+    pub status_changed_at: Option<String>,
+    /// Note personnelle sur 10 (O-03).
+    pub rating: Option<i64>,
+    pub notes: Option<String>,
     pub last_played: Option<String>,
     pub last_session_seconds: Option<i64>,
     pub ach_total: i64,
@@ -503,7 +509,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
 
     let mut stmt = conn.prepare(
         "SELECT id, title, sort_title, cover_path, hero_path, logo_path, description, genres, developer, release_date,
-                favorite, hidden, added_at, manual_baseline_minutes, no_tracking, manual_baseline_at FROM games",
+                favorite, hidden, added_at, manual_baseline_minutes, no_tracking, manual_baseline_at, status, status_changed_at, rating, notes FROM games",
     )?;
     let mut games = Vec::new();
     let mut rows = stmt.query([])?;
@@ -563,6 +569,10 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
             since_manual_seconds: manual.map_or(0, |m| m.since_seconds),
             since_sync_seconds: if manual.is_some() { 0 } else { since_sync_total },
             no_tracking: r.get(14)?,
+            status: r.get(16)?,
+            status_changed_at: r.get(17)?,
+            rating: r.get(18)?,
+            notes: r.get(19)?,
             last_played,
             last_session_seconds: last_session.get(&id).copied(),
             ach_total,

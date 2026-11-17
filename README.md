@@ -18,10 +18,15 @@ Ensuite, l'application se met à jour toute seule (voir plus bas).
 - **Bibliothèque unifiée** : détection automatique des jeux installés (plusieurs disques, disques externes et changement de lettre compris), jeux possédés non installés (Steam avec clé API, Epic, GOG), jeux sans launcher par simple glisser-déposer d'un `.exe` ou par dossiers surveillés.
 - **Lancement** par le launcher d'origine ou par l'exécutable direct, au choix pour chaque jeu ; dossier et exécutable corrigeables quand la détection se trompe.
 - **Temps de jeu suivi automatiquement**, que le jeu soit lancé depuis GameLauncher, depuis Steam, un raccourci ou un autre launcher (observation des processus toutes les 3 s, sans droits administrateur ni injection). Historique des sessions, temps de départ saisissable à la main, temps Steam importé.
+- **Organisation** : accueil « Continuer à jouer », backlog en colonnes avec statuts (À jouer, En cours, Terminé, 100 %…), note sur 10 et notes, journal de session, recherche rapide `Ctrl+K`, roulette « Je sais pas à quoi jouer » 🎲, collections par glisser-déposer et collections automatiques, vues grille, liste ou bandeaux.
 - **Statistiques et séries** 🔥 : série de jours joués (avec jokers et rappel du soir), grille d'activité façon GitHub, temps par semaine et par mois, par launcher, par genre, top jeux, carte des habitudes, records, succès Steam (avec rareté) et badges.
 - **Jaquettes et fiches** automatiques (cache Steam, catalogue Epic, SteamGridDB en option).
 - **Zone de notification** : GameLauncher reste actif fenêtre fermée, menu des jeux récents et du jeu en cours, démarrage avec Windows.
 - Favoris, collections, filtres et tris, thème sombre ou clair, sauvegarde et restauration.
+
+| Accueil | Backlog |
+|---|---|
+| ![Accueil](docs/captures/accueil.jpg) | ![Backlog](docs/captures/backlog.jpg) |
 
 | Fiche d'un jeu | Statistiques |
 |---|---|

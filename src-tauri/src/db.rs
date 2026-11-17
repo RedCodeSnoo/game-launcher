@@ -127,6 +127,14 @@ const MIGRATIONS: &[&str] = &[
     );
     CREATE INDEX idx_activity_game ON activity_days(game_id, day);
     "#,
+    // v6 (V1.4) : statut (backlog), note sur 10 et notes du joueur, journal de session.
+    r#"
+    ALTER TABLE games ADD COLUMN status TEXT;
+    ALTER TABLE games ADD COLUMN status_changed_at TEXT;
+    ALTER TABLE games ADD COLUMN rating INTEGER;
+    ALTER TABLE games ADD COLUMN notes TEXT;
+    ALTER TABLE play_sessions ADD COLUMN note TEXT;
+    "#,
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

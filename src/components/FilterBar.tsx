@@ -3,18 +3,20 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from "lucide-react";
 import { SOURCE_LABELS } from "../i18n";
 import { DEFAULT_FILTERS, listDrives, listGenres, listSources, type Filters, type SortKey } from "../lib/filter";
+import { STATUSES } from "../lib/organize";
 import type { Game } from "../types";
 
 const SORTS: { id: SortKey; label: string }[] = [
   { id: "name", label: "Nom" },
   { id: "lastPlayed", label: "Dernier lancement" },
   { id: "playtime", label: "Temps de jeu" },
+  { id: "rating", label: "Ma note" },
   { id: "added", label: "Date d'ajout" },
   { id: "achievements", label: "Progression des succès" },
 ];
 
 export function activeFilterCount(f: Filters): number {
-  return (f.installed !== "all" ? 1 : 0) + f.sources.length + (f.drive ? 1 : 0) + (f.genre ? 1 : 0);
+  return (f.installed !== "all" ? 1 : 0) + f.sources.length + (f.drive ? 1 : 0) + (f.genre ? 1 : 0) + (f.status ? 1 : 0);
 }
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -105,6 +107,22 @@ export function FilterBar({ games, filters, onChange }: { games: Game[]; filters
                 </div>
               </div>
             )}
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Statut</p>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip active={filters.status === null} onClick={() => onChange({ ...filters, status: null })}>
+                  Tous
+                </Chip>
+                {STATUSES.map((st) => (
+                  <Chip key={st.id} active={filters.status === st.id} onClick={() => onChange({ ...filters, status: filters.status === st.id ? null : st.id })}>
+                    {st.emoji} {st.label}
+                  </Chip>
+                ))}
+                <Chip active={filters.status === "none"} onClick={() => onChange({ ...filters, status: filters.status === "none" ? null : "none" })}>
+                  Sans statut
+                </Chip>
+              </div>
+            </div>
             {genres.length > 0 && (
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted">Genre</span>
@@ -125,7 +143,7 @@ export function FilterBar({ games, filters, onChange }: { games: Game[]; filters
             {count > 0 && (
               <button
                 className="self-start text-xs text-accent hover:underline"
-                onClick={() => onChange({ ...filters, installed: DEFAULT_FILTERS.installed, sources: [], drive: null, genre: null })}
+                onClick={() => onChange({ ...filters, installed: DEFAULT_FILTERS.installed, sources: [], drive: null, genre: null, status: null })}
               >
                 Réinitialiser les filtres
               </button>

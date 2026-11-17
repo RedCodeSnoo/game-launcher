@@ -317,19 +317,33 @@ pub struct SessionView {
     pub active: bool,
     /// `"app"` (lancée depuis l'application) ou `"detected"` (E4-12).
     pub origin: String,
+    /// Journal de session (O-04).
+    pub note: Option<String>,
+}
+
+/// Note d'une session (« boss du chapitre 3 battu »), vide pour l'effacer.
+#[tauri::command(async)]
+pub fn set_session_note(app: AppHandle, state: State<'_, Shared>, session_id: String, note: String) -> AppResult<()> {
+    let note: String = note.trim().chars().take(500).collect();
+    let n = state.conn().execute("UPDATE play_sessions SET note = ?2 WHERE id = ?1", params![session_id, if note.is_empty() { None } else { Some(note) }])?;
+    if n == 0 {
+        return Err(AppError::new("SESSION_NOT_FOUND", session_id));
+    }
+    notify_library(&app);
+    Ok(())
 }
 
 #[tauri::command(async)]
 pub fn get_sessions(state: State<'_, Shared>, game_id: String) -> AppResult<Vec<SessionView>> {
     let conn = state.conn();
     let mut stmt = conn.prepare(
-        "SELECT ps.id, gs.source, ps.started_at, ps.ended_at, ps.duration_seconds, ps.active, ps.origin
+        "SELECT ps.id, gs.source, ps.started_at, ps.ended_at, ps.duration_seconds, ps.active, ps.origin, ps.note
          FROM play_sessions ps JOIN game_sources gs ON gs.id = ps.game_source_id
          WHERE gs.game_id = ?1 ORDER BY ps.started_at DESC LIMIT 500",
     )?;
     let rows = stmt
         .query_map(params![game_id], |r| {
-            Ok(SessionView { id: r.get(0)?, source: r.get(1)?, started_at: r.get(2)?, ended_at: r.get(3)?, duration_seconds: r.get(4)?, active: r.get(5)?, origin: r.get(6)? })
+            Ok(SessionView { id: r.get(0)?, source: r.get(1)?, started_at: r.get(2)?, ended_at: r.get(3)?, duration_seconds: r.get(4)?, active: r.get(5)?, origin: r.get(6)?, note: r.get(7)? })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
@@ -379,7 +393,16 @@ pub struct GamePatch {
     #[serde(default, deserialize_with = "double_option")]
     pub manual_playtime_minutes: Option<Option<i64>>,
     pub no_tracking: Option<bool>,
+    /// `Some(None)` retire le statut.
+    #[serde(default, deserialize_with = "double_option")]
+    pub status: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub rating: Option<Option<i64>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub notes: Option<Option<String>>,
 }
+
+pub const STATUSES: &[&str] = &["backlog", "playing", "finished", "completed", "abandoned", "paused"];
 
 fn double_option<'de, T: Deserialize<'de>, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<T>>, D::Error> {
     Ok(Some(Option::<T>::deserialize(d)?))
@@ -400,6 +423,22 @@ pub fn update_game(app: AppHandle, state: State<'_, Shared>, game_id: String, pa
     }
     if let Some(hidden) = patch.hidden {
         conn.execute("UPDATE games SET hidden = ?2 WHERE id = ?1", params![game_id, hidden])?;
+    }
+    if let Some(status) = &patch.status {
+        if let Some(s) = status.as_deref().filter(|s| !STATUSES.contains(s)) {
+            return Err(AppError::new("BAD_STATUS", s));
+        }
+        conn.execute("UPDATE games SET status = ?2, status_changed_at = ?3 WHERE id = ?1", params![game_id, status, now_iso()])?;
+    }
+    if let Some(rating) = patch.rating {
+        if let Some(r) = rating.filter(|r| !(1..=10).contains(r)) {
+            return Err(AppError::new("BAD_RATING", r.to_string()));
+        }
+        conn.execute("UPDATE games SET rating = ?2 WHERE id = ?1", params![game_id, rating])?;
+    }
+    if let Some(notes) = &patch.notes {
+        let notes = notes.as_deref().map(|n| n.chars().take(20_000).collect::<String>()).filter(|n| !n.trim().is_empty());
+        conn.execute("UPDATE games SET notes = ?2 WHERE id = ?1", params![game_id, notes])?;
     }
     if let Some(no_tracking) = patch.no_tracking {
         conn.execute("UPDATE games SET no_tracking = ?2 WHERE id = ?1", params![game_id, no_tracking])?;
@@ -761,6 +800,8 @@ const UI_SETTINGS: &[&str] = &[
     "streak_jokers",
     "streak_reminder",
     "streak_reminder_hour",
+    "cover_size",
+    "session_journal",
 ];
 
 #[tauri::command(async)]
@@ -1131,6 +1172,33 @@ mod tests {
         let big = tmp.path().join("grand.png");
         std::fs::write(&big, vec![0u8; (MAX_THEME_IMAGE + 1) as usize]).unwrap();
         assert_eq!(read_image_data_url(big.to_string_lossy().into()).unwrap_err().code, "FILE_TOO_LARGE");
+    }
+
+    #[test]
+    fn status_rating_and_notes_are_validated_and_listed() {
+        let conn = library_with_session();
+        let apply = |patch: &str| -> Result<(), String> {
+            let p: GamePatch = serde_json::from_str(patch).unwrap();
+            if let Some(Some(s)) = &p.status {
+                if !STATUSES.contains(&s.as_str()) {
+                    return Err("BAD_STATUS".into());
+                }
+            }
+            if let Some(Some(r)) = p.rating {
+                if !(1..=10).contains(&r) {
+                    return Err("BAD_RATING".into());
+                }
+            }
+            conn.execute("UPDATE games SET status = COALESCE(?1, status), rating = COALESCE(?2, rating), notes = COALESCE(?3, notes)", params![p.status.flatten(), p.rating.flatten(), p.notes.flatten()]).unwrap();
+            Ok(())
+        };
+        apply(r#"{"status": "backlog", "rating": 8, "notes": "À finir avant la suite"}"#).unwrap();
+        assert_eq!(apply(r#"{"status": "fini"}"#).unwrap_err(), "BAD_STATUS");
+        assert_eq!(apply(r#"{"rating": 11}"#).unwrap_err(), "BAD_RATING");
+        let g = &library::list_games(&conn).unwrap()[0];
+        assert_eq!((g.status.as_deref(), g.rating, g.notes.as_deref()), (Some("backlog"), Some(8), Some("À finir avant la suite")));
+        let cleared: GamePatch = serde_json::from_str(r#"{"status": null}"#).unwrap();
+        assert_eq!(cleared.status, Some(None), "null retire le statut");
     }
 
     #[test]

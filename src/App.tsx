@@ -6,7 +6,14 @@ import { AddGameDialog } from "./components/AddGameDialog";
 import { CollectionActions, CollectionsMenu, MergeBanner } from "./components/Collections";
 import { FilterBar } from "./components/FilterBar";
 import { GameDetail } from "./components/GameDetail";
-import { Library } from "./components/Library";
+import { Backlog } from "./components/Backlog";
+import { CommandPalette } from "./components/CommandPalette";
+import { Home } from "./components/Home";
+import { Library, type LibraryView } from "./components/Library";
+import { Roulette } from "./components/Roulette";
+import { SessionJournal } from "./components/SessionJournal";
+import { DEFAULT_COVER } from "./components/GameGrid";
+import { AUTO_COLLECTIONS } from "./lib/organize";
 import { MetadataSettings } from "./components/MetadataSettings";
 import { Settings } from "./components/Settings";
 import { Sidebar, type Page } from "./components/Sidebar";
@@ -37,6 +44,8 @@ function sectionTitle(section: Section, collections: Collection[]): string {
       return SOURCE_LABELS[section.source];
     case "collection":
       return collections.find((c) => c.id === section.id)?.name ?? t("nav.collections");
+    case "auto":
+      return AUTO_COLLECTIONS.find((c) => c.id === section.id)?.label ?? t("nav.collections");
   }
 }
 
@@ -49,10 +58,13 @@ function Shell() {
   const [scanning, setScanning] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [offline, setOffline] = useState(false);
-  const [page, setPage] = useState<Page>("library");
+  const [page, setPage] = useState<Page>("home");
   const [section, setSection] = useState<Section>({ kind: "all" });
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [view, setView] = useState<LibraryView>("grid");
+  const [coverSize, setCoverSize] = useState(DEFAULT_COVER);
+  const [palette, setPalette] = useState(false);
+  const [roulette, setRoulette] = useState(false);
   const theme = useTheme();
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [openGameId, setOpenGameId] = useState<string | null>(null);
@@ -80,7 +92,8 @@ function Shell() {
     api
       .getSettings()
       .then((s) => {
-        if (s.view === "list" || s.view === "grid") setView(s.view);
+        if (s.view === "list" || s.view === "grid" || s.view === "banners") setView(s.view);
+        if (s.cover_size && Number(s.cover_size) >= 100) setCoverSize(Number(s.cover_size));
         if (s.sort) setFilters((f) => ({ ...f, sort: s.sort as SortKey, sortDesc: s.sort_desc === "1" }));
         if (s.wizard_done !== "1") setWizard(true);
       })
@@ -96,6 +109,24 @@ function Shell() {
   useEffect(() => {
     if (prefsLoaded.current) void api.setSetting("view", view).catch(() => {});
   }, [view]);
+  useEffect(() => {
+    if (!prefsLoaded.current) return;
+    const t = setTimeout(() => void api.setSetting("cover_size", String(coverSize)).catch(() => {}), 400);
+    return () => clearTimeout(t);
+  }, [coverSize]);
+
+  // Ctrl+K : recherche rapide (O-05).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPalette((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     if (!prefsLoaded.current) return;
     void api.setSetting("sort", filters.sort).catch(() => {});
@@ -198,6 +229,11 @@ function Shell() {
   }, [openGameId]);
 
   const openCollection = section.kind === "collection" ? collections.find((c) => c.id === section.id) : undefined;
+  const goPage = useCallback((p: Page) => {
+    setPage(p);
+    setOpenGameId(null);
+  }, []);
+  const openGameById = useCallback((id: string) => setOpenGameId(id), []);
 
   return (
     <div className="flex h-full">
@@ -210,10 +246,9 @@ function Shell() {
           setSection(s);
           setOpenGameId(null);
         }}
-        onPage={(p) => {
-          setPage(p);
-          setOpenGameId(null);
-        }}
+        onPage={goPage}
+        onSearch={() => setPalette(true)}
+        onRoulette={() => setRoulette(true)}
         status={
           offline ? (
             <p className="flex items-center gap-2 px-2.5 py-1 text-xs text-muted" title="La bibliothèque, le lancement et le suivi des heures fonctionnent sans Internet.">
@@ -238,6 +273,10 @@ function Shell() {
             extraSettings={<MetadataSettings game={openGame} />}
             headerExtra={<CollectionsMenu game={openGame} collections={collections} />}
           />
+        ) : page === "home" ? (
+          <Home games={games} running={running} onPlay={play} onOpen={openGameById} onStats={() => goPage("stats")} onBacklog={() => goPage("backlog")} onRoulette={() => setRoulette(true)} />
+        ) : page === "backlog" ? (
+          <Backlog games={games} onOpen={openGameById} />
         ) : page === "settings" ? (
           <Settings />
         ) : page === "stats" ? (
@@ -254,6 +293,8 @@ function Shell() {
             onFilters={setFilters}
             view={view}
             onView={setView}
+            coverSize={coverSize}
+            onCoverSize={setCoverSize}
             onRefresh={() => void api.refreshLibrary()}
             onOpen={(g) => setOpenGameId(g.id)}
             onPlay={play}
@@ -274,6 +315,9 @@ function Shell() {
       </main>
       {addDialog && <AddGameDialog initialExe={addDialog.exe} onClose={() => setAddDialog(null)} />}
       {wizard && <Wizard onDone={() => setWizard(false)} />}
+      {palette && <CommandPalette games={games} onClose={() => setPalette(false)} onPlay={play} onOpenGame={openGameById} onPage={goPage} onRoulette={() => setRoulette(true)} />}
+      {roulette && <Roulette games={games} onClose={() => setRoulette(false)} onPlay={play} onOpen={(id) => { setRoulette(false); openGameById(id); }} />}
+      <SessionJournal />
     </div>
   );
 }

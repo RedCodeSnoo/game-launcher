@@ -2,6 +2,8 @@
 
 export type SourceId = "steam" | "epic" | "gog" | "battlenet" | "riot" | "ubisoft" | "ea" | "xbox" | "local";
 
+export type GameStatus = "backlog" | "playing" | "finished" | "completed" | "abandoned" | "paused";
+
 export type LaunchMethod = "uri" | "launcher_cli" | "exe";
 
 export interface GameSourceView {
@@ -61,6 +63,13 @@ export interface Game {
   sinceManualSeconds: number;
   sinceSyncSeconds: number;
   noTracking: boolean;
+  status: GameStatus | null;
+  statusChangedAt: string | null;
+  rating: number | null;
+  notes: string | null;
+  /** Durée de vie (minutes) : histoire principale et complétion, si connue (V1.5). */
+  timeToBeatMain?: number | null;
+  timeToBeatFull?: number | null;
   lastPlayed: string | null;
   lastSessionSeconds: number | null;
   achTotal: number;
@@ -76,6 +85,7 @@ export interface Session {
   durationSeconds: number;
   active: boolean;
   origin: "app" | "detected";
+  note: string | null;
 }
 
 export interface WatchedFolder {
@@ -98,6 +108,9 @@ export interface GamePatch {
   hidden?: boolean;
   manualPlaytimeMinutes?: number | null;
   noTracking?: boolean;
+  status?: GameStatus | null;
+  rating?: number | null;
+  notes?: string | null;
 }
 
 export interface SourcePatch {
@@ -308,5 +321,5 @@ export interface DayDetail {
   day: string;
   seconds: number;
   games: { gameId: string; title: string; coverPath: string | null; seconds: number }[];
-  sessions: { id: string; gameId: string; gameTitle: string; startedAt: string; endedAt: string; durationSeconds: number; origin: "app" | "detected" }[];
+  sessions: { id: string; gameId: string; gameTitle: string; startedAt: string; endedAt: string; durationSeconds: number; origin: "app" | "detected"; note: string | null }[];
 }

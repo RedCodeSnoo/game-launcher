@@ -455,6 +455,7 @@ pub struct DaySession {
     pub ended_at: String,
     pub duration_seconds: i64,
     pub origin: String,
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -482,13 +483,13 @@ pub fn day_detail(conn: &Connection, day: &str, game_id: Option<&str>) -> Result
     let to = activity::day_start(d + Duration::days(1), &Local, cfg.rollover_hour);
     let iso = |t: DateTime<Utc>| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     let mut stmt = conn.prepare(
-        "SELECT ps.id, g.id, g.title, ps.started_at, ps.ended_at, ps.duration_seconds, ps.origin FROM play_sessions ps
+        "SELECT ps.id, g.id, g.title, ps.started_at, ps.ended_at, ps.duration_seconds, ps.origin, ps.note FROM play_sessions ps
          JOIN game_sources gs ON gs.id = ps.game_source_id JOIN games g ON g.id = gs.game_id
          WHERE ps.started_at < ?2 AND ps.ended_at >= ?1 AND ps.duration_seconds > 0 AND (?3 IS NULL OR g.id = ?3) ORDER BY ps.started_at",
     )?;
     let sessions = stmt
         .query_map(params![iso(from), iso(to), game_id], |r| {
-            Ok(DaySession { id: r.get(0)?, game_id: r.get(1)?, game_title: r.get(2)?, started_at: r.get(3)?, ended_at: r.get(4)?, duration_seconds: r.get(5)?, origin: r.get(6)? })
+            Ok(DaySession { id: r.get(0)?, game_id: r.get(1)?, game_title: r.get(2)?, started_at: r.get(3)?, ended_at: r.get(4)?, duration_seconds: r.get(5)?, origin: r.get(6)?, note: r.get(7)? })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(DayDetail { day: day.to_string(), seconds: games.iter().map(|g| g.seconds).sum(), games, sessions })

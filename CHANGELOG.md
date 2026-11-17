@@ -2,6 +2,18 @@
 
 Chaque section `## [X.Y.Z]` devient le texte de la Release GitHub et de la bannière de mise à jour dans l'application.
 
+## [1.4.0] – 2026-11-18
+
+**Organisation** 🗂️
+
+- **Accueil** : grande bannière « Continuer à jouer » avec un bouton Jouer géant sur l'illustration du jeu, jeux récents, série, succès récents, jeux « à jouer ensuite » et nouveautés de la bibliothèque.
+- **Statut de chaque jeu** (À jouer, En cours, En pause, Terminé, 100 %, Abandonné) et page **Backlog** en colonnes : glissez une carte pour changer son statut. Filtre par statut dans la bibliothèque.
+- **Note sur 10** et **notes personnelles** dans la fiche de chaque jeu ; **journal de session** optionnel (« boss du chapitre 3 battu ») visible dans l'historique.
+- **Recherche rapide `Ctrl+K`** : trouver et lancer un jeu, ouvrir une page, changer de thème, au clavier.
+- **« Je sais pas à quoi jouer » 🎲** : roulette animée parmi les jeux installés (backlog seulement, pas joué depuis 30 jours, genre).
+- **Collections** : glissez une jaquette sur une collection de la barre latérale ; collections automatiques « Pas joué depuis 6 mois », « Presque 100 % » et « Ajoutés récemment ».
+- Bibliothèque : taille des jaquettes réglable et nouvelle vue en bandeaux.
+
 ## [1.3.0] – 2026-11-18
 
 **Statistiques et séries** 🔥

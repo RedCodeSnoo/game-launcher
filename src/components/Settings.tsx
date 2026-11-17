@@ -163,7 +163,10 @@ export function Settings() {
         </SettingsCard>
 
         <SettingsCard title="Pendant le jeu">
+          <div className="flex flex-col gap-4">
           {option("minimize_on_launch", "Fermer la fenêtre au lancement d'un jeu", "GameLauncher reste dans la zone de notification ; le suivi du temps de jeu continue.")}
+          {option("session_journal", "Journal de session", "À la fin d'une partie, GameLauncher propose d'ajouter une note (« boss du chapitre 3 battu »), visible dans l'historique.")}
+          </div>
         </SettingsCard>
 
         <SettingsCard title="Suivi du temps de jeu" description="GameLauncher observe la liste des processus toutes les 3 secondes, sans droits administrateur.">

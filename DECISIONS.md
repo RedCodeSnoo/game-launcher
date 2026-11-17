@@ -277,3 +277,14 @@ Chaque thème est capturé sur la bibliothèque, la fiche jeu, les statistiques 
 - Badges calculés en Rust ; ceux obtenus sont mémorisés (`badges_earned`) et notifiés à la fin d'une session. Au premier calcul (mise à jour depuis 1.2), les badges déjà mérités sont enregistrés sans notification.
 - Rappel du soir (option) : vérification toutes les 5 min à partir de l'heure choisie, une notification par jour au plus, jamais pendant une partie.
 - Repoussé (« Could ») : objectifs hebdomadaires et limite quotidienne (S2-14), voir `TODO.md`.
+
+## D50 – Organisation (V1.4)
+
+- Statut : colonne `games.status` (`backlog`, `playing`, `paused`, `finished`, `completed`, `abandoned`, ou aucun), avec sa date de changement pour trier les colonnes du backlog ; valeurs vérifiées côté Rust. Note personnelle de 1 à 10 (dix pastilles, un second clic l'efface) et notes texte (20 000 caractères au plus, enregistrées automatiquement). Note de session (500 caractères) dans `play_sessions.note`. Migration v6.
+- Accueil, page par défaut au démarrage. Le jeu de la bannière est le dernier joué encore installé ; l'illustration (« hero ») sert de fond, avec un voile du thème pour la lisibilité.
+- Backlog : six colonnes, glisser-déposer HTML5 (type `application/x-game-id`, aussi utilisé pour déposer une jaquette sur une collection ou sur « Backlog » dans la barre latérale).
+- Recherche rapide : score flou maison (début du titre, initiales « ffvii », début de mot, sous-chaîne, puis lettres dans l'ordre), petit bonus pour les jeux installés et favoris. Entrée lance un jeu installé, Maj+Entrée ouvre sa fiche. Les pages, les thèmes et la roulette sont dans la même liste.
+- Roulette : tirage uniforme parmi les jeux installés et disponibles, filtres combinables ; la bande de jaquettes s'arrête en 3,2 s (sans animation si les animations sont réduites). Le filtre « durée courte » attend la durée de vie des jeux (V1.5).
+- Journal de session : l'invitation apparaît dans la fenêtre à la fin d'une session conservée (événement `session-ended`), seulement si l'option est activée ; une notification Windows ne permettrait pas de saisir la note.
+- Collections automatiques calculées dans l'interface : pas joué depuis 182 jours, 80 % des succès ou plus sans être à 100 %, ajouté depuis 30 jours.
+- Bibliothèque : taille des jaquettes de 110 à 240 px (réglage `cover_size`), vues grille, liste et bandeaux (illustration du jeu en fond), toutes virtualisées.

@@ -1,7 +1,7 @@
 // Backend simulé pour le développement dans un navigateur (sans Tauri) et les essais de charge.
 // Nombre de jeux réglable : http://localhost:1420/?games=1000
 import { mockEmit } from "./api";
-import type { Game, GameSourceView, Period, SourceId, StatsFilter } from "./types";
+import type { Game, GameSourceView, GameStatus, Period, SourceId, StatsFilter } from "./types";
 
 const WORDS = ["Shadow", "Star", "Legends", "Empire", "Quest", "Odyssey", "Rising", "Frontier", "Chronicles", "Tactics", "Racing", "Simulator", "Kingdom", "Echoes", "Horizon", "Zero", "Infinite", "Lost", "Dark", "Neon"];
 const SOURCES: SourceId[] = ["steam", "steam", "steam", "epic", "gog", "battlenet", "riot", "ubisoft", "ea", "xbox", "local"];
@@ -75,6 +75,12 @@ function makeGames(count: number): Game[] {
       sinceManualSeconds: 0,
       sinceSyncSeconds: 0,
       noTracking: false,
+      status: ([null, "backlog", "playing", null, "finished", "backlog", "completed", "paused", null, "abandoned", "backlog"] as (GameStatus | null)[])[i % 11],
+      statusChangedAt: null,
+      rating: i % 4 === 0 ? 5 + (i % 6) : null,
+      notes: null,
+      timeToBeatMain: i % 3 === 0 ? 300 + (i * 97) % 2400 : null,
+      timeToBeatFull: i % 3 === 0 ? 900 + (i * 131) % 6000 : null,
       lastPlayed: src.lastPlayedSource,
       lastSessionSeconds: tracked ? Math.floor(tracked / 4) : null,
       achTotal,
@@ -164,9 +170,10 @@ Object.assign(mockHandlers, {
   get_sessions: (a: Args) => {
     const g = find(a.gameId);
     if (!g || g.trackedSeconds === 0) return [];
-    return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected" }));
+    return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected", note: i === 1 ? "Boss du chapitre 3 battu" : null }));
   },
   delete_session: () => undefined,
+  set_session_note: () => notify(),
   read_image_data_url: () => "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   read_text_file: () => { throw { code: "FILE_NOT_FOUND", detail: "" }; },
   write_text_file: () => undefined,
@@ -413,7 +420,7 @@ function mockDay(day: string, gameId?: string) {
   });
   let t = new Date(`${day}T19:00:00`).getTime();
   const sessions = games.map((g, i) => {
-    const s = { id: `${day}-${i}`, gameId: g.gameId, gameTitle: g.title, startedAt: new Date(t).toISOString(), endedAt: new Date(t + g.seconds * 1000).toISOString(), durationSeconds: g.seconds, origin: i % 2 ? "app" : "detected" };
+    const s = { id: `${day}-${i}`, gameId: g.gameId, gameTitle: g.title, startedAt: new Date(t).toISOString(), endedAt: new Date(t + g.seconds * 1000).toISOString(), durationSeconds: g.seconds, origin: i % 2 ? "app" : "detected", note: null };
     t += g.seconds * 1000 + 900_000;
     return s;
   });

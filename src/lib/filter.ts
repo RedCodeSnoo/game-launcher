@@ -1,5 +1,6 @@
 // Recherche, filtres et tris de la bibliothèque (F-NAV-02/03/04). Fonctions pures, testées.
-import type { Game, SourceId } from "../types";
+import type { Game, GameStatus, SourceId } from "../types";
+import { inAutoCollection, type AutoCollection } from "./organize";
 
 export type Section =
   | { kind: "all" }
@@ -8,9 +9,10 @@ export type Section =
   | { kind: "recent" }
   | { kind: "hidden" }
   | { kind: "source"; source: SourceId }
-  | { kind: "collection"; id: string };
+  | { kind: "collection"; id: string }
+  | { kind: "auto"; id: AutoCollection };
 
-export type SortKey = "name" | "lastPlayed" | "playtime" | "added" | "achievements";
+export type SortKey = "name" | "lastPlayed" | "playtime" | "added" | "achievements" | "rating";
 
 export interface Filters {
   search: string;
@@ -18,6 +20,8 @@ export interface Filters {
   sources: SourceId[];
   drive: string | null;
   genre: string | null;
+  /** Statut du backlog ; « none » = sans statut. */
+  status: GameStatus | "none" | null;
   sort: SortKey;
   sortDesc: boolean;
 }
@@ -28,6 +32,7 @@ export const DEFAULT_FILTERS: Filters = {
   sources: [],
   drive: null,
   genre: null,
+  status: null,
   sort: "name",
   sortDesc: false,
 };
@@ -65,6 +70,8 @@ function inSection(game: Game, section: Section): boolean {
       return game.sources.some((s) => s.source === section.source);
     case "collection":
       return game.collections.includes(section.id);
+    case "auto":
+      return inAutoCollection(game, section.id);
   }
 }
 
@@ -78,6 +85,7 @@ const comparators: Record<SortKey, (a: Game, b: Game) => number> = {
   playtime: (a, b) => a.playtimeMinutes - b.playtimeMinutes,
   added: (a, b) => a.addedAt.localeCompare(b.addedAt),
   achievements: (a, b) => achievementRatio(a) - achievementRatio(b),
+  rating: (a, b) => (a.rating ?? 0) - (b.rating ?? 0),
 };
 
 export function applyFilters(games: Game[], section: Section, filters: Filters): Game[] {
@@ -89,6 +97,7 @@ export function applyFilters(games: Game[], section: Section, filters: Filters):
     if (filters.sources.length > 0 && !g.sources.some((s) => filters.sources.includes(s.source))) return false;
     if (filters.drive && !g.sources.some((s) => s.installed && s.drive === filters.drive)) return false;
     if (filters.genre && !g.genres.includes(filters.genre)) return false;
+    if (filters.status === "none" ? g.status !== null : filters.status && g.status !== filters.status) return false;
     return true;
   });
   // « Récents » impose son propre ordre tant que l'utilisateur n'a pas choisi un tri.

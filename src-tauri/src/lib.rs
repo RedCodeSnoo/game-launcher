@@ -252,6 +252,7 @@ pub fn run() {
             commands::get_activity,
             commands::get_activity_day,
             commands::get_streaks,
+            commands::set_session_note,
             commands::get_sources,
             commands::set_source_enabled,
             commands::get_settings,
