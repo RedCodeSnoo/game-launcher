@@ -220,3 +220,5 @@ Compilation locale sans la clé : `npm run build:local` (désactive les artefact
 
 `.github/workflows/release.yml`, déclenché par un tag `v*`, sur `windows-latest` : contrôle des versions, tests de l'interface, puis `tauri-apps/tauri-action` (compilation, signature, Release publiée avec l'installeur, sa signature et `latest.json`). Les tests Rust ne tournent pas en CI : plusieurs dépendent de la machine (coffre Windows, processus réels, disques) ; ils sont lancés localement avant chaque commit (`npm run check`).
 
+GitHub ne déclenche aucun workflow quand plus de trois tags sont poussés en une fois : lors de la première publication (8 tags), le tag `v1.1.1` a dû être repoussé seul. Pour une nouvelle version, pousser un seul tag (`git push --follow-tags` après `npm version`).
+
