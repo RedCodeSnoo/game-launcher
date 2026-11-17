@@ -27,6 +27,8 @@
 
 ## Non fait
 
+- **Objectifs de temps de jeu** (S2-14, « Could ») : objectif hebdomadaire ou limite quotidienne avec rappel doux. Non fait en V1.3.
+
 - **IGDB** (F-MET-02) : non intégré, car il exige un compte développeur Twitch (identifiant + secret). La description, les genres, le développeur et la date de sortie viennent de la fiche de la boutique Steam (sans clé) et du catalogue Epic. Voir `DECISIONS.md` D11.
 - **Epic : heures et succès en ligne** (API non officielle de Legendary/Heroic) : non fait. Elle exige une connexion OAuth interactive au compte Epic, impossible à tester sans l'utilisateur, et son usage peut être contraire aux CGU (§10). Les jeux Epic possédés et leurs visuels viennent du cache local du launcher ; les heures viennent du suivi maison.
 - **Succès GOG** (API GOG avec connexion au compte), **API non officielles Ubisoft et Xbox (OpenXBL)** : non faits, pour les mêmes raisons. Ces sources affichent « Aucun succès ».

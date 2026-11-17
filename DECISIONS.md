@@ -257,3 +257,23 @@ La portée du protocole d'images (`$APPDATA/**`) est calculée par Tauri avant l
 ## D47 – Vérification visuelle
 
 Chaque thème est capturé sur la bibliothèque, la fiche jeu, les statistiques et les paramètres (Edge sans interface, backend de démonstration), puis examiné en planches contact. Corrigé grâce à cela : le fond passait devant le contenu non positionné (ordre d'empilement), le soleil Néon traversait les tableaux, la barre d'outils Rétro passait sur deux lignes, les entrées de menu Rétro avaient l'ombre des boutons. Contrôles dans la vraie fenêtre : polices chargées, thème enregistré, thème dynamique sur de vraies jaquettes, mise en pause pendant une partie (un jeu détecté en cours a bien suspendu les effets).
+
+## D48 – Jours joués et séries (V1.3)
+
+- Jour de jeu = date locale décalée de l'heure de bascule (4 h par défaut, réglable de 0 à 12 h). Les débuts de journée sont calculés dans le fuseau de la machine avec les règles d'heure d'été (une journée peut durer 23 ou 25 h ; une bascule tombant dans le trou du passage à l'heure d'été est repoussée à l'heure suivante qui existe).
+- Une session est répartie entre les jours qu'elle touche au prorata du temps réel passé de chaque côté (sa durée enregistrée est conservée au total).
+- Seuil d'un jour joué : 15 min par défaut, tous jeux confondus. Seules les sessions comptent ; les bases saisies à la main et les temps importés n'ont pas de date.
+- Série en cours : jours joués d'affilée jusqu'à aujourd'hui ; si aujourd'hui n'est pas encore joué, la série d'hier reste affichée « en danger » jusqu'à la bascule.
+- Jokers (option, désactivée par défaut) : un joker tous les 7 jours joués d'affilée, 2 au plus ; un jour manqué est sauvé automatiquement mais ne compte pas comme joué ; les jokers sont perdus avec la série.
+- Résumés journaliers : table `activity_days` (jour, jeu, secondes, sessions), reconstruite quand la signature des sessions change (nombre, somme des durées, dernière fin, jeux distincts, heure de bascule, décalage du fuseau). Sur 3 ans (4 380 sessions), la page Statistiques complète se calcule en 16 ms en release, la grille en 4 ms.
+
+## D49 – Page Statistiques
+
+- Périodes : 7 et 30 derniers jours de jeu, année civile en cours, tout. Pour « tout », le temps total, la répartition par launcher et le top jeux reprennent le total de la fiche jeu (bases manuelles et temps importés compris) ; pour les autres périodes, seules les sessions de la période comptent (c'est indiqué sous chaque carte).
+- Filtre par jeu ou par launcher (source principale du jeu) : il s'applique à la grille, aux barres, aux répartitions, aux habitudes et aux records. Les séries restent globales.
+- Genres : le temps d'un jeu est partagé à parts égales entre ses genres (« Non classé » sans genre).
+- Records : plus longue session, plus grosse journée, jeu le plus joué en une semaine (lundi → dimanche), heure de fin la plus tardive comptée depuis l'heure de bascule (3 h 40 est plus tard que 23 h).
+- Graphiques avec visx (scales, shapes, axes), couleurs et polices du thème par variables CSS ; grille et carte des habitudes en SVG et CSS.
+- Badges calculés en Rust ; ceux obtenus sont mémorisés (`badges_earned`) et notifiés à la fin d'une session. Au premier calcul (mise à jour depuis 1.2), les badges déjà mérités sont enregistrés sans notification.
+- Rappel du soir (option) : vérification toutes les 5 min à partir de l'heure choisie, une notification par jour au plus, jamais pendant une partie.
+- Repoussé (« Could ») : objectifs hebdomadaires et limite quotidienne (S2-14), voir `TODO.md`.

@@ -1,6 +1,8 @@
 //! Cœur applicatif du launcher (voir cahier-des-charges-launcher.md, §7).
+pub mod activity;
 pub mod backup;
 pub mod commands;
+pub mod dashboard;
 pub mod db;
 pub mod drives;
 pub mod error;
@@ -87,6 +89,38 @@ fn on_close_requested(app: &AppHandle) {
     }
 }
 
+/// Rappel du soir (S3-03) : une notification par jour si la série est en danger à partir de l'heure choisie.
+fn streak_reminder_loop(state: Shared, app: AppHandle) {
+    use chrono::Timelike;
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(300));
+        let (enabled, hour, last) = {
+            let conn = state.conn();
+            (
+                db::get_setting(&conn, "streak_reminder").as_deref() == Some("1"),
+                db::get_setting(&conn, "streak_reminder_hour").and_then(|h| h.parse::<u32>().ok()).unwrap_or(21).min(23),
+                db::get_setting(&conn, "streak_reminder_last").unwrap_or_default(),
+            )
+        };
+        let now = chrono::Local::now();
+        if !enabled || now.hour() < hour || !state.tracker.running_games().is_empty() {
+            continue;
+        }
+        let today = now.format("%Y-%m-%d").to_string();
+        if last == today {
+            continue;
+        }
+        let streaks = match activity::current_streaks(&state.conn()) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        if streaks.in_danger && streaks.current > 0 {
+            notify(&app, &format!("🔥 Ta série de {} jours est en danger", streaks.current), "Une petite partie aujourd'hui pour la garder ?");
+            let _ = db::set_setting(&state.conn(), "streak_reminder_last", &today);
+        }
+    }
+}
+
 pub fn run() {
     let autostarted = std::env::args().any(|a| a == system::AUTOSTART_ARG);
     let app = tauri::Builder::default()
@@ -154,6 +188,12 @@ pub fn run() {
                 std::thread::spawn(move || tracker.run_loop(state, emit));
             }
 
+            // Rappel du soir si la série est en danger (option).
+            {
+                let (state, handle) = (state.clone(), app.handle().clone());
+                std::thread::spawn(move || streak_reminder_loop(state, handle));
+            }
+
             // Mises à jour : au démarrage puis toutes les 6 h, fenêtre ouverte ou non.
             {
                 let handle = app.handle().clone();
@@ -208,6 +248,10 @@ pub fn run() {
             commands::apply_metadata,
             commands::set_cover,
             commands::get_stats,
+            commands::get_dashboard,
+            commands::get_activity,
+            commands::get_activity_day,
+            commands::get_streaks,
             commands::get_sources,
             commands::set_source_enabled,
             commands::get_settings,

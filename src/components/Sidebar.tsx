@@ -4,6 +4,7 @@ import { BarChart3, Clock, EyeOff, FolderHeart, Gamepad2, HardDriveDownload, Hea
 import { SOURCE_COLORS, SOURCE_LABELS, t } from "../i18n";
 import { listSources, type Section } from "../lib/filter";
 import type { Collection, Game, SourceId } from "../types";
+import { StreakWidget } from "./StreakWidget";
 
 export type Page = "library" | "stats" | "settings";
 
@@ -101,6 +102,9 @@ export function Sidebar({ games, collections, page, section, onSection, onPage, 
         ))}
       </nav>
       <div className="flex flex-col gap-0.5 border-t border-line p-2">
+        <div className="mb-1.5">
+          <StreakWidget onOpen={() => onPage("stats")} />
+        </div>
         {status}
         <NavItem active={page === "stats"} onClick={() => onPage("stats")} icon={<BarChart3 size={16} />} label={t("nav.stats")} />
         <NavItem active={page === "settings"} onClick={() => onPage("settings")} icon={<SettingsIcon size={16} />} label={t("nav.settings")} />

@@ -14,6 +14,13 @@ use tauri::{AppHandle, Emitter as _, Manager, State};
 
 /// Envoie un événement à l'interface et tient la zone de notification à jour.
 pub fn emit_event(app: &AppHandle, event: &str, payload: serde_json::Value) {
+    if event == "badge-earned" {
+        let name = payload.get("name").and_then(|t| t.as_str()).unwrap_or_default();
+        let description = payload.get("description").and_then(|t| t.as_str()).unwrap_or_default();
+        crate::notify(app, &format!("🏅 Badge obtenu : {name}"), description);
+        let _ = app.emit(event, payload);
+        return;
+    }
     if event == "session-detected" {
         // Notification facultative (E4-10).
         let title = payload.get("title").and_then(|t| t.as_str()).unwrap_or_default();
@@ -649,6 +656,29 @@ pub fn set_cover(app: AppHandle, state: State<'_, Shared>, game_id: String, path
 // Statistiques, sources, réglages (V1.0)
 // ---------------------------------------------------------------------------
 
+/// Page Statistiques (V1.3) : période (7d, 30d, year, all) et filtre facultatif (jeu ou launcher).
+#[tauri::command(async)]
+pub fn get_dashboard(state: State<'_, Shared>, period: crate::dashboard::Period, filter: Option<crate::dashboard::Filter>) -> AppResult<crate::dashboard::Dashboard> {
+    let disabled = state.disabled_sources();
+    Ok(crate::dashboard::compute(&state.conn(), &disabled, period, &filter.unwrap_or_default(), &chrono::Local, chrono::Utc::now())?)
+}
+
+/// Grille d'activité : une année, ou les 12 derniers mois (`year` absent) ; tous les jeux ou un seul.
+#[tauri::command(async)]
+pub fn get_activity(state: State<'_, Shared>, year: Option<i32>, game_id: Option<String>) -> AppResult<crate::dashboard::ActivityGrid> {
+    Ok(crate::dashboard::grid(&state.conn(), year, game_id.as_deref())?)
+}
+
+#[tauri::command(async)]
+pub fn get_activity_day(state: State<'_, Shared>, day: String, game_id: Option<String>) -> AppResult<crate::dashboard::DayDetail> {
+    Ok(crate::dashboard::day_detail(&state.conn(), &day, game_id.as_deref())?)
+}
+
+#[tauri::command(async)]
+pub fn get_streaks(state: State<'_, Shared>) -> AppResult<crate::activity::Streaks> {
+    Ok(crate::activity::current_streaks(&state.conn())?)
+}
+
 #[tauri::command(async)]
 pub fn get_stats(state: State<'_, Shared>) -> AppResult<crate::stats::Stats> {
     let disabled = state.disabled_sources();
@@ -726,6 +756,11 @@ const UI_SETTINGS: &[&str] = &[
     "dynamic_theme",
     "season_theme",
     "ui_sounds",
+    "streak_min_minutes",
+    "streak_rollover_hour",
+    "streak_jokers",
+    "streak_reminder",
+    "streak_reminder_hour",
 ];
 
 #[tauri::command(async)]

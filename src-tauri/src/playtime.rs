@@ -145,6 +145,13 @@ mod tests {
         for s in &stats.by_source {
             println!("stats {:?} : {:.1} h ({} jeux)", s.source, s.minutes as f64 / 60.0, s.games);
         }
+        let t = std::time::Instant::now();
+        let streaks = crate::activity::current_streaks(&conn).unwrap();
+        let d = crate::dashboard::compute(&conn, &std::collections::HashSet::new(), crate::dashboard::Period::Month, &Default::default(), &chrono::Local, chrono::Utc::now()).unwrap();
+        println!("série : {} jour(s), meilleure {} ({:?} → {:?}), en danger : {}", streaks.current, streaks.best, streaks.best_start, streaks.best_end, streaks.in_danger);
+        println!("30 jours : {:.1} h de sessions, {} jeu(x), top : {:?}", d.session_seconds as f64 / 3600.0, d.games_played, d.top_games.iter().take(3).map(|g| (&g.title, g.minutes)).collect::<Vec<_>>());
+        println!("records : {:?}", d.records.longest_session.as_ref().map(|r| (r.value, &r.game_title)));
+        println!("badges obtenus : {:?} ; calcul en {:?}", d.badges.iter().filter(|b| b.earned).map(|b| b.name).collect::<Vec<_>>(), t.elapsed());
     }
 
     /// Base d'avant la migration v4 (sans date) : datée par la première sauvegarde qui contient la valeur.

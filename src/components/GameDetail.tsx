@@ -5,6 +5,7 @@ import { api, imageUrl } from "../api";
 import { errorMessage, SOURCE_LABELS, t } from "../i18n";
 import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
 import type { Game, GameSourceView, Session } from "../types";
+import { ActivityGrid } from "./ActivityGrid";
 import { Cover, placeholderGradient, SourceBadge } from "./Cover";
 import { LocationSettings } from "./LocationSettings";
 import { useToasts } from "./Toasts";
@@ -67,9 +68,16 @@ function SessionsTab({ game }: { game: Game }) {
   useEffect(() => void load(), [load, game.trackedSeconds]);
 
   if (!sessions) return <div className="skeleton h-24 rounded-lg" />;
+  const grid = sessions.length > 0 && (
+    <div className="mb-6 rounded-xl border border-line bg-panel p-4">
+      <ActivityGrid gameId={game.id} />
+    </div>
+  );
   if (sessions.length === 0)
     return <p className="py-8 text-center text-sm text-muted">Aucune session enregistrée. Les sessions sont suivies tant que GameLauncher tourne, même si le jeu est lancé depuis son launcher ou un raccourci.</p>;
   return (
+    <>
+    {grid}
     <table className="w-full text-sm">
       <thead className="text-left text-xs uppercase tracking-wide text-muted">
         <tr>
@@ -139,6 +147,7 @@ function SessionsTab({ game }: { game: Game }) {
         ))}
       </tbody>
     </table>
+    </>
   );
 }
 

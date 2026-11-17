@@ -2,6 +2,17 @@
 
 Chaque section `## [X.Y.Z]` devient le texte de la Release GitHub et de la bannière de mise à jour dans l'application.
 
+## [1.3.0] – 2026-11-18
+
+**Statistiques et séries** 🔥
+
+- **Séries de jours joués** : série actuelle (signalée « en danger » tant que vous n'avez pas joué aujourd'hui), meilleure série avec ses dates, jokers optionnels (un tous les 7 jours, 2 au plus).
+- **Grille d'activité** façon GitHub sur 12 mois ou par année : survolez un jour pour voir les jeux joués, cliquez pour ses sessions. La même grille dans la fiche de chaque jeu.
+- Nouvelle page **Statistiques** : périodes 7 jours / 30 jours / cette année / tout, filtre par jeu ou par launcher, temps par semaine et par mois, répartition par launcher et par genre, top jeux, carte de vos habitudes (jour × heure), records, succès (les plus rares, ceux presque à 100 %).
+- **Badges** : Noctambule, Marathonien, Fidèle, Collectionneur, Touche-à-tout, Complétionniste, avec une notification à l'obtention.
+- Widget de série dans la barre latérale, série dans le menu de la zone de notification, rappel du soir optionnel si la série est en danger.
+- Réglages : seuil d'un jour joué (15 min par défaut) et heure de bascule (4 h : une partie à 1 h du matin compte pour la veille).
+
 ## [1.2.0] – 2026-11-18
 
 **Thèmes** : dix ambiances complètes, chacune avec son fond, ses particules, ses polices et ses cartes.

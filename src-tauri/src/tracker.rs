@@ -621,6 +621,11 @@ impl Tracker {
         }
         if sessions_changed {
             events.push(("library-updated", json!(null)));
+            // Méta-succès du launcher (S2-13) : notification à l'obtention.
+            match crate::dashboard::new_badges(&conn) {
+                Ok(fresh) => events.extend(fresh.into_iter().map(|b| ("badge-earned", json!({ "name": b.name, "description": b.description, "icon": b.icon })))),
+                Err(e) => log::warn!("badges : {e:#}"),
+            }
         }
         events
     }

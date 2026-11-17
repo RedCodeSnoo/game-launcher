@@ -5,7 +5,8 @@ import { hueOf } from "../lib/format";
 import { SOURCE_COLORS, SOURCE_LABELS } from "../i18n";
 import type { SourceId } from "../types";
 
-export function Cover({ title, path, className = "" }: { title: string; path: string | null; className?: string }) {
+/** `mini` : vignette minuscule (listes, infobulles) : l'initiale seule, pas de titre coupé lettre par lettre. */
+export function Cover({ title, path, className = "", mini = false }: { title: string; path: string | null; className?: string; mini?: boolean }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [path]);
   const url = imageUrl(path);
@@ -18,7 +19,11 @@ export function Cover({ title, path, className = "" }: { title: string; path: st
       className={`flex h-full w-full items-center justify-center p-3 text-center ${className}`}
       style={{ background: placeholderGradient(hue) }}
     >
-      <span className="font-display line-clamp-4 text-sm font-semibold text-on-scrim/90">{title}</span>
+      {mini ? (
+        <span className="font-display text-xs font-bold text-on-scrim/90">{title.trim().charAt(0).toUpperCase()}</span>
+      ) : (
+        <span className="font-display line-clamp-4 text-sm font-semibold text-on-scrim/90">{title}</span>
+      )}
     </div>
   );
 }

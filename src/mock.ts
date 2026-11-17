@@ -1,7 +1,7 @@
 // Backend simulé pour le développement dans un navigateur (sans Tauri) et les essais de charge.
 // Nombre de jeux réglable : http://localhost:1420/?games=1000
 import { mockEmit } from "./api";
-import type { Game, GameSourceView, SourceId } from "./types";
+import type { Game, GameSourceView, Period, SourceId, StatsFilter } from "./types";
 
 const WORDS = ["Shadow", "Star", "Legends", "Empire", "Quest", "Odyssey", "Rising", "Frontier", "Chronicles", "Tactics", "Racing", "Simulator", "Kingdom", "Echoes", "Horizon", "Zero", "Infinite", "Lost", "Dark", "Neon"];
 const SOURCES: SourceId[] = ["steam", "steam", "steam", "epic", "gog", "battlenet", "riot", "ubisoft", "ea", "xbox", "local"];
@@ -296,6 +296,10 @@ Object.assign(mockHandlers, {
       recentAchievements: visible.filter((g) => g.achUnlocked > 0).slice(0, 6).map((g, i) => ({ gameId: g.id, gameTitle: g.title, name: `Succès n° ${i + 1}`, icon: null, unlockedAt: new Date(Date.now() - i * 2e8).toISOString() })),
     };
   },
+  get_dashboard: (a: Args) => mockDashboard(a.period as Period, (a.filter ?? {}) as StatsFilter),
+  get_activity: (a: Args) => mockActivity(a.year as number | undefined, a.gameId as string | undefined),
+  get_activity_day: (a: Args) => mockDay(String(a.day), a.gameId as string | undefined),
+  get_streaks: () => mockStreaks(),
   get_sources: () =>
     (["steam", "local", "epic", "riot", "battlenet", "gog", "ubisoft", "ea", "xbox"] as SourceId[]).map((source) => ({
       source,
@@ -345,3 +349,167 @@ export async function mockCall(cmd: string, args: Args): Promise<unknown> {
   if (!handler) throw { code: "INTERNAL", detail: `commande simulée absente : ${cmd}` };
   return handler(args);
 }
+
+// --- Statistiques simulées (V1.3) ---
+
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const dayOffset = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return iso(d);
+};
+/** Historique fictif : jour → [identifiant du jeu, secondes][]. */
+const mockHistory: Map<string, [string, number][]> = (() => {
+  const map = new Map<string, [string, number][]>();
+  let seed = 7;
+  const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const played = mockState.games.filter((g) => g.trackedSeconds > 0).slice(0, 14);
+  for (let n = 420; n >= 0; n--) {
+    const weekend = [0, 6].includes(new Date(Date.now() - n * 864e5).getDay());
+    if (n > 3 && r() < (weekend ? 0.18 : 0.38)) continue;
+    const count = 1 + Math.floor(r() * (weekend ? 3 : 2));
+    map.set(
+      dayOffset(n),
+      Array.from({ length: count }, () => [played[Math.floor(r() * played.length)]?.id ?? "g0", Math.round(900 + r() * (weekend ? 14000 : 7000))] as [string, number]),
+    );
+  }
+  return map;
+})();
+
+function mockStreaks() {
+  let current = 0;
+  const todayPlayed = mockHistory.has(dayOffset(0));
+  for (let n = todayPlayed ? 0 : 1; mockHistory.has(dayOffset(n)); n++) current++;
+  let best = 0;
+  let run = 0;
+  let bestEnd = 0;
+  for (let n = 420; n >= 0; n--) {
+    run = mockHistory.has(dayOffset(n)) ? run + 1 : 0;
+    if (run > best) {
+      best = run;
+      bestEnd = n;
+    }
+  }
+  return { current, currentStart: dayOffset(current - (todayPlayed ? 1 : 0)), inDanger: !todayPlayed && current > 0, todayPlayed, best, bestStart: dayOffset(bestEnd + best - 1), bestEnd: dayOffset(bestEnd), jokersAvailable: 1, jokerDays: [] };
+}
+
+function mockActivity(year?: number, gameId?: string) {
+  const today = dayOffset(0);
+  const start = year ? `${year}-01-01` : dayOffset(364);
+  const end = year ? `${year}-12-31` : today;
+  const days = [...mockHistory.entries()]
+    .filter(([d]) => d >= start && d <= end)
+    .map(([day, list]) => ({ day, seconds: list.filter(([g]) => !gameId || g === gameId).reduce((n, [, s]) => n + s, 0) }))
+    .filter((d) => d.seconds > 0);
+  const years = [...new Set([...mockHistory.keys()].map((d) => Number(d.slice(0, 4))))].sort((a, b) => b - a);
+  return { start, end, today, days, years, minMinutes: 15 };
+}
+
+function mockDay(day: string, gameId?: string) {
+  const list = (mockHistory.get(day) ?? []).filter(([g]) => !gameId || g === gameId);
+  const games = list.map(([id, seconds]) => {
+    const g = mockState.games.find((x) => x.id === id);
+    return { gameId: id, title: g?.title ?? "Jeu", coverPath: g?.coverPath ?? null, seconds };
+  });
+  let t = new Date(`${day}T19:00:00`).getTime();
+  const sessions = games.map((g, i) => {
+    const s = { id: `${day}-${i}`, gameId: g.gameId, gameTitle: g.title, startedAt: new Date(t).toISOString(), endedAt: new Date(t + g.seconds * 1000).toISOString(), durationSeconds: g.seconds, origin: i % 2 ? "app" : "detected" };
+    t += g.seconds * 1000 + 900_000;
+    return s;
+  });
+  return { day, seconds: games.reduce((n, g) => n + g.seconds, 0), games, sessions };
+}
+
+function mockDashboard(period: Period, filter: StatsFilter) {
+  const since = period === "7d" ? dayOffset(6) : period === "30d" ? dayOffset(29) : period === "year" ? `${new Date().getFullYear()}-01-01` : null;
+  const keep = (id: string) => {
+    const g = mockState.games.find((x) => x.id === id);
+    return !!g && (!filter.gameId || filter.gameId === id) && (!filter.source || g.sources[0].source === filter.source);
+  };
+  const perGame = new Map<string, number>();
+  const habits = Array.from({ length: 7 }, () => Array(24).fill(0) as number[]);
+  for (const [day, list] of mockHistory) {
+    if (since && day < since) continue;
+    for (const [id, secs] of list) {
+      if (!keep(id)) continue;
+      perGame.set(id, (perGame.get(id) ?? 0) + secs);
+      const wd = (new Date(`${day}T12:00:00`).getDay() + 6) % 7;
+      const h = 17 + (secs % 6);
+      habits[wd][h] += secs * 0.6;
+      habits[wd][(h + 1) % 24] += secs * 0.4;
+    }
+  }
+  const sessionSeconds = [...perGame.values()].reduce((a, b) => a + b, 0);
+  const visible = mockState.games.filter((g) => !g.hidden && keep(g.id));
+  const top = period === "all"
+    ? [...visible].sort((x, y) => y.playtimeMinutes - x.playtimeMinutes).slice(0, 10).map((g) => ({ gameId: g.id, title: g.title, coverPath: g.coverPath, minutes: g.playtimeMinutes }))
+    : [...perGame.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, s]) => { const g = mockState.games.find((x) => x.id === id)!; return { gameId: id, title: g.title, coverPath: g.coverPath, minutes: Math.round(s / 60) }; });
+  const bySourceMap = new Map<SourceId, { source: SourceId; minutes: number; games: number }>();
+  const genreMap = new Map<string, { genre: string; minutes: number; games: number }>();
+  for (const t of top) {
+    const g = mockState.games.find((x) => x.id === t.gameId)!;
+    const s = bySourceMap.get(g.sources[0].source) ?? { source: g.sources[0].source, minutes: 0, games: 0 };
+    s.minutes += t.minutes;
+    s.games += 1;
+    bySourceMap.set(s.source, s);
+    for (const genre of g.genres) {
+      const e = genreMap.get(genre) ?? { genre, minutes: 0, games: 0 };
+      e.minutes += t.minutes;
+      e.games += 1;
+      genreMap.set(genre, e);
+    }
+  }
+  const weekly = Array.from({ length: 12 }, (_, i) => {
+    let seconds = 0;
+    for (let k = 0; k < 7; k++) for (const [id, s] of mockHistory.get(dayOffset((11 - i) * 7 + k)) ?? []) if (keep(id)) seconds += s;
+    return { start: dayOffset((11 - i) * 7 + 6), seconds };
+  });
+  const monthly = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (11 - i), 1);
+    const prefix = iso(d).slice(0, 7);
+    let seconds = 0;
+    for (const [day, list] of mockHistory) if (day.startsWith(prefix)) for (const [id, s] of list) if (keep(id)) seconds += s;
+    return { start: `${prefix}-01`, seconds };
+  });
+  const withAch = visible.filter((g) => g.achTotal > 0);
+  const st = mockStreaks();
+  return {
+    period,
+    since,
+    totalMinutes: period === "all" ? visible.reduce((n, g) => n + g.playtimeMinutes, 0) : Math.round(sessionSeconds / 60),
+    sessionSeconds,
+    gamesPlayed: period === "all" ? visible.filter((g) => g.playtimeMinutes > 0).length : perGame.size,
+    streaks: st,
+    daysPlayedThisYear: [...mockHistory.keys()].filter((d) => d.startsWith(String(new Date().getFullYear()))).length,
+    weekly,
+    monthly,
+    bySource: [...bySourceMap.values()].sort((a, b) => b.minutes - a.minutes),
+    byGenre: [...genreMap.values()].sort((a, b) => b.minutes - a.minutes),
+    topGames: top,
+    habits: habits.map((row) => row.map(Math.round)),
+    records: {
+      longestSession: top[0] ? { value: 19800, label: "Plus longue session", date: dayOffset(40), gameId: top[0].gameId, gameTitle: top[0].title } : null,
+      biggestDay: { value: 28800, label: "Plus grosse journée", date: dayOffset(12), gameId: null, gameTitle: null },
+      bestWeek: top[1] ? { value: 61200, label: "Jeu le plus joué en une semaine", date: dayOffset(60), gameId: top[1].gameId, gameTitle: top[1].title } : null,
+      latestHour: top[2] ? { value: 3 * 60 + 12, label: "Heure de jeu la plus tardive", date: dayOffset(90), gameId: top[2].gameId, gameTitle: top[2].title } : null,
+    },
+    achievements: {
+      unlocked: withAch.reduce((n, g) => n + g.achUnlocked, 0),
+      total: withAch.reduce((n, g) => n + g.achTotal, 0),
+      completion: withAch.length ? (withAch.reduce((n, g) => n + g.achUnlocked / g.achTotal, 0) / withAch.length) * 100 : 0,
+      perfectGames: withAch.filter((g) => g.achUnlocked === g.achTotal).length,
+      rarest: withAch.slice(0, 5).map((g, i) => ({ gameId: g.id, gameTitle: g.title, name: ["Sans une égratignure", "Collectionneur fou", "Speedrun", "Pacifiste", "Perfection"][i], icon: null, percent: [0.4, 1.2, 2.8, 4.1, 6.5][i] })),
+      almostDone: withAch.filter((g) => g.achUnlocked / g.achTotal >= 0.8 && g.achUnlocked < g.achTotal).slice(0, 6).map((g) => ({ gameId: g.id, title: g.title, coverPath: g.coverPath, unlocked: g.achUnlocked, total: g.achTotal })),
+    },
+    badges: [
+      { id: "night-owl", name: "Noctambule", description: "Jouer après 3 h du matin.", icon: "🦉", earned: true },
+      { id: "marathon", name: "Marathonien", description: "Une session de plus de 6 heures.", icon: "🏃", earned: false },
+      { id: "loyal", name: "Fidèle", description: "Une série de 30 jours joués d'affilée.", icon: "🔥", earned: st.best >= 30 },
+      { id: "collector", name: "Collectionneur", description: "100 jeux dans la bibliothèque.", icon: "📚", earned: mockState.games.length >= 100 },
+      { id: "explorer", name: "Touche-à-tout", description: "Jouer sur 5 launchers différents.", icon: "🧭", earned: true },
+      { id: "completionist", name: "Complétionniste", description: "Tous les succès d'un jeu.", icon: "🏆", earned: withAch.some((g) => g.achUnlocked === g.achTotal) },
+    ],
+  };
+}
+

@@ -231,3 +231,82 @@ export interface UpdateInfo {
   lastCheck: string | null;
   lastCheckFailed: boolean;
 }
+
+// --- Statistiques et séries (V1.3) ---
+
+export type Period = "7d" | "30d" | "year" | "all";
+
+export interface StatsFilter {
+  gameId?: string;
+  source?: SourceId;
+}
+
+export interface Streaks {
+  current: number;
+  currentStart: string | null;
+  inDanger: boolean;
+  todayPlayed: boolean;
+  best: number;
+  bestStart: string | null;
+  bestEnd: string | null;
+  jokersAvailable: number;
+  jokerDays: string[];
+}
+
+export interface StatRecord {
+  value: number;
+  label: string;
+  date: string | null;
+  gameId: string | null;
+  gameTitle: string | null;
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  earned: boolean;
+}
+
+export interface Dashboard {
+  period: Period;
+  since: string | null;
+  totalMinutes: number;
+  sessionSeconds: number;
+  gamesPlayed: number;
+  streaks: Streaks;
+  daysPlayedThisYear: number;
+  weekly: Bucket[];
+  monthly: Bucket[];
+  bySource: SourceTime[];
+  byGenre: { genre: string; minutes: number; games: number }[];
+  topGames: { gameId: string; title: string; coverPath: string | null; minutes: number }[];
+  habits: number[][];
+  records: { longestSession: StatRecord | null; biggestDay: StatRecord | null; bestWeek: StatRecord | null; latestHour: StatRecord | null };
+  achievements: {
+    unlocked: number;
+    total: number;
+    completion: number;
+    perfectGames: number;
+    rarest: { gameId: string; gameTitle: string; name: string; icon: string | null; percent: number }[];
+    almostDone: { gameId: string; title: string; coverPath: string | null; unlocked: number; total: number }[];
+  };
+  badges: Badge[];
+}
+
+export interface ActivityGrid {
+  start: string;
+  end: string;
+  today: string;
+  days: { day: string; seconds: number }[];
+  years: number[];
+  minMinutes: number;
+}
+
+export interface DayDetail {
+  day: string;
+  seconds: number;
+  games: { gameId: string; title: string; coverPath: string | null; seconds: number }[];
+  sessions: { id: string; gameId: string; gameTitle: string; startedAt: string; endedAt: string; durationSeconds: number; origin: "app" | "detected" }[];
+}

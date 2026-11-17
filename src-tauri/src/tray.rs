@@ -71,6 +71,14 @@ fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, usize, String)> {
     }
     menu.append(&recents)?;
 
+    // Série de jours joués (S3-02).
+    if let Ok(s) = crate::activity::current_streaks(&state.conn()) {
+        if s.current > 0 {
+            let label = format!("🔥 Série : {} jour{}{}", s.current, if s.current > 1 { "s" } else { "" }, if s.in_danger { " (à jouer aujourd'hui)" } else { "" });
+            menu.append(&MenuItem::new(app, label, false, none)?)?;
+        }
+    }
+
     let mut tooltip = String::from("GameLauncher");
     if running.is_empty() {
         menu.append(&MenuItem::new(app, "Aucun jeu en cours", false, none)?)?;

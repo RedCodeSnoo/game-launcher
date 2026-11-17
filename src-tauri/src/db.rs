@@ -116,6 +116,17 @@ const MIGRATIONS: &[&str] = &[
     ALTER TABLE games RENAME COLUMN manual_playtime_minutes TO manual_baseline_minutes;
     ALTER TABLE games ADD COLUMN manual_baseline_at TEXT;
     "#,
+    // v5 (V1.3) : temps par jour de jeu et par jeu, reconstruit depuis les sessions (`activity.rs`).
+    r#"
+    CREATE TABLE activity_days (
+        day TEXT NOT NULL,
+        game_id TEXT NOT NULL,
+        seconds INTEGER NOT NULL,
+        sessions INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, game_id)
+    );
+    CREATE INDEX idx_activity_game ON activity_days(game_id, day);
+    "#,
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

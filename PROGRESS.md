@@ -158,3 +158,11 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Correctif des jaquettes au premier lancement (D46).
 - Tests : 19 tests des thèmes (validation, contrastes WCAG AA des 10 thèmes, saisons, particules, couleur dominante), 1 test Rust (fichiers de thème). Total : 111 tests Rust, 32 tests de l'interface.
 - Vérification visuelle : 10 thèmes × 4 pages en planches contact ; coût CPU mesuré par thème (D44).
+
+## V1.3 – Statistiques et séries (`v1.3.0`)
+
+- Calcul des jours joués en Rust (seuil, heure de bascule, sessions à cheval, fuseau, heure d'été) et table de résumés journaliers.
+- Séries actuelle et meilleure, jokers, rappel du soir, série dans la zone de notification et widget dans la barre latérale.
+- Page Statistiques : 4 tuiles, grille d'activité (12 mois ou année, survol avec jaquettes, clic = sessions), barres par semaine / mois, répartitions par launcher et par genre, top jeux, carte des habitudes 7 × 24, records, succès, badges ; périodes et filtres. Grille aussi dans la fiche de chaque jeu.
+- Tests : 11 tests des jours et séries (bascule, prorata, fuseau fixe, heure d'été dans les deux sens, jokers, seuil, reconstruction, 3 ans d'historique) et 6 tests de la page (périodes, filtres, genres, habitudes, records, badges, grille, 3 ans < 300 ms). Total : 128 tests Rust, 32 tests de l'interface.
+- Vérifié : page complète en 16 ms (release, 3 ans d'historique) ; sur une copie des données réelles, série de 5 jours et page calculée en 14 ms ; page contrôlée dans les 10 thèmes.

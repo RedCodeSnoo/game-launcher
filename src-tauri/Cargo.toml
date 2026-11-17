@@ -36,6 +36,7 @@ tauri-plugin-process = "2"
 base64 = "0.22"
 
 [dev-dependencies]
+chrono-tz = "0.10"
 tempfile = "3"
 
 [profile.release]

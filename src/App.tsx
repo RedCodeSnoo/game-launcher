@@ -241,7 +241,7 @@ function Shell() {
         ) : page === "settings" ? (
           <Settings />
         ) : page === "stats" ? (
-          <Stats onOpenGame={setOpenGameId} refreshKey={version} />
+          <Stats onOpenGame={setOpenGameId} refreshKey={version} games={games} />
         ) : (
           <Library
             games={games}

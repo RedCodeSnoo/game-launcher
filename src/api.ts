@@ -1,7 +1,7 @@
 // Passerelle vers le backend. Hors Tauri (navigateur, `npm run dev`), un backend simulé prend le relais.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Accounts, Achievement, Candidate, Collection, Game, GamePatch, MergeSuggestion, ScanState, Session, SourceId, SourcePatch, SourceStatus, Stats, StoreMatch, UpdateInfo, WatchedFolder } from "./types";
+import type { Accounts, Achievement, ActivityGrid, Candidate, Collection, Dashboard, DayDetail, Game, GamePatch, MergeSuggestion, Period, ScanState, Session, SourceId, SourcePatch, SourceStatus, Stats, StatsFilter, StoreMatch, Streaks, UpdateInfo, WatchedFolder } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -72,6 +72,10 @@ export const api = {
   applyMetadata: (gameId: string, appid: number) => call<void>("apply_metadata", { gameId, appid }),
   setCover: (gameId: string, path?: string) => call<void>("set_cover", { gameId, path }),
   getStats: () => call<Stats>("get_stats"),
+  getDashboard: (period: Period, filter?: StatsFilter) => call<Dashboard>("get_dashboard", { period, filter }),
+  getActivity: (year?: number, gameId?: string) => call<ActivityGrid>("get_activity", { year, gameId }),
+  getActivityDay: (day: string, gameId?: string) => call<DayDetail>("get_activity_day", { day, gameId }),
+  getStreaks: () => call<Streaks>("get_streaks"),
   getSources: () => call<SourceStatus[]>("get_sources"),
   setSourceEnabled: (source: SourceId, enabled: boolean) => call<void>("set_source_enabled", { source, enabled }),
   getSettings: () => call<Record<string, string>>("get_settings"),
