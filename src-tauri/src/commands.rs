@@ -398,7 +398,8 @@ pub fn update_game(app: AppHandle, state: State<'_, Shared>, game_id: String, pa
         conn.execute("UPDATE games SET no_tracking = ?2 WHERE id = ?1", params![game_id, no_tracking])?;
     }
     if let Some(manual) = patch.manual_playtime_minutes {
-        conn.execute("UPDATE games SET manual_playtime_minutes = ?2 WHERE id = ?1", params![game_id, manual.map(|m| m.max(0))])?;
+        // Une saisie est une base datée de maintenant ; les sessions suivantes s'y ajoutent.
+        crate::playtime::set_manual_base(&conn, &game_id, manual)?;
     }
     drop(conn);
     notify_library(&app);
@@ -772,6 +773,7 @@ pub fn import_backup(app: AppHandle, state: State<'_, Shared>, path: String) -> 
         return Err(AppError::new("BACKUP_WHILE_PLAYING", ""));
     }
     crate::backup::import(&mut state.conn(), Path::new(&path))?;
+    crate::playtime::date_legacy_manual_bases(&state.conn(), &crate::backup::backups_dir(&state.data_dir))?;
     log::info!("sauvegarde restaurée");
     notify_library(&app);
     refresh_library(app, state);

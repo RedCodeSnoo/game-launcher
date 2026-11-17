@@ -70,7 +70,9 @@ function makeGames(count: number): Game[] {
       available,
       playtimeMinutes: src.sourcePlaytimeMinutes ?? Math.floor(tracked / 60),
       trackedSeconds: tracked,
-      manualPlaytimeMinutes: null,
+      manualBaselineMinutes: null,
+      manualBaselineAt: null,
+      sinceManualSeconds: 0,
       sinceSyncSeconds: 0,
       noTracking: false,
       lastPlayed: src.lastPlayedSource,
@@ -173,7 +175,8 @@ Object.assign(mockHandlers, {
     mockState.games = mockState.games.map((g) => {
       if (g.id !== a.gameId) return g;
       const next = { ...g, ...patch } as Game;
-      if (typeof patch.manualPlaytimeMinutes === "number") next.playtimeMinutes = patch.manualPlaytimeMinutes;
+      if (typeof patch.manualPlaytimeMinutes === "number") Object.assign(next, { playtimeMinutes: patch.manualPlaytimeMinutes, manualBaselineMinutes: patch.manualPlaytimeMinutes, manualBaselineAt: new Date().toISOString(), sinceManualSeconds: 0 });
+      if (patch.manualPlaytimeMinutes === null) Object.assign(next, { manualBaselineMinutes: null, manualBaselineAt: null, sinceManualSeconds: 0 });
       return next;
     });
     notify();

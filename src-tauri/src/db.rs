@@ -110,6 +110,12 @@ const MIGRATIONS: &[&str] = &[
     ALTER TABLE game_sources ADD COLUMN playtime_synced_at TEXT;
     UPDATE game_sources SET playtime_synced_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE source_playtime_minutes IS NOT NULL;
     "#,
+    // v4 : une correction manuelle devient une base datée, à laquelle s'ajoutent les sessions suivantes.
+    // Les valeurs existantes sont conservées ; leur date est retrouvée ensuite (`playtime::date_legacy_manual_bases`).
+    r#"
+    ALTER TABLE games RENAME COLUMN manual_playtime_minutes TO manual_baseline_minutes;
+    ALTER TABLE games ADD COLUMN manual_baseline_at TEXT;
+    "#,
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {
@@ -131,8 +137,13 @@ fn init(conn: &Connection) -> Result<()> {
 }
 
 pub fn migrate(conn: &Connection) -> Result<()> {
+    migrate_to(conn, MIGRATIONS.len())
+}
+
+/// Applique les migrations jusqu'à la version `target` (utile aux tests de migration).
+pub fn migrate_to(conn: &Connection, target: usize) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-    for (i, sql) in MIGRATIONS.iter().enumerate().skip(version as usize) {
+    for (i, sql) in MIGRATIONS.iter().enumerate().take(target).skip(version as usize) {
         conn.execute_batch(&format!("BEGIN; {sql} PRAGMA user_version = {}; COMMIT;", i + 1))?;
     }
     Ok(())

@@ -11,6 +11,7 @@ pub mod logging;
 pub mod metadata;
 pub mod models;
 pub mod online;
+pub mod playtime;
 pub mod procs;
 pub mod providers;
 pub mod secrets;
@@ -107,6 +108,9 @@ pub fn run() {
             logging::init(&data_dir);
             log::info!("démarrage, données dans {}", data_dir.display());
             let conn = db::open(&data_dir.join("library.db"))?;
+            if let Err(e) = playtime::date_legacy_manual_bases(&conn, &backup::backups_dir(&data_dir)) {
+                log::warn!("datation des corrections manuelles : {e:#}");
+            }
             match backup::daily(&conn, &data_dir) {
                 Ok(Some(path)) => log::info!("sauvegarde automatique : {}", path.display()),
                 Ok(None) => {}

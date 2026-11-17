@@ -54,7 +54,8 @@ pub struct Stats {
     pub achievements_total: i64,
     pub by_source: Vec<SourceTime>,
     pub top_games: Vec<TopGame>,
-    /// 12 dernières semaines (lundi → dimanche), temps suivi par l'application.
+    /// 12 dernières semaines (lundi → dimanche) : sessions réelles uniquement (une base manuelle ou un temps importé
+    /// n'a pas de date).
     pub weekly: Vec<Bucket>,
     /// 12 derniers mois, temps suivi par l'application.
     pub monthly: Vec<Bucket>,
@@ -64,13 +65,14 @@ pub struct Stats {
 pub fn summarize(games: &[GameView]) -> (i64, Vec<SourceTime>, Vec<TopGame>) {
     let visible: Vec<&GameView> = games.iter().filter(|g| !g.hidden).collect();
     let total: i64 = visible.iter().map(|g| g.playtime_minutes).sum();
+    // Temps par launcher : total de chaque jeu (même valeur que la fiche jeu), compté pour sa source principale
+    // (la première de la fiche : celle qui est installée et lancée).
     let mut by_source: BTreeMap<&'static str, (SourceId, i64, usize)> = BTreeMap::new();
     for g in &visible {
-        for s in &g.sources {
-            let entry = by_source.entry(s.source.source.as_str()).or_insert((s.source.source, 0, 0));
-            entry.1 += s.playtime_minutes;
-            entry.2 += 1;
-        }
+        let Some(primary) = g.sources.first() else { continue };
+        let entry = by_source.entry(primary.source.source.as_str()).or_insert((primary.source.source, 0, 0));
+        entry.1 += g.playtime_minutes;
+        entry.2 += 1;
     }
     let mut by_source: Vec<SourceTime> = by_source.into_values().map(|(source, minutes, games)| SourceTime { source, minutes, games }).collect();
     by_source.sort_by(|a, b| b.minutes.cmp(&a.minutes));
@@ -188,5 +190,70 @@ mod tests {
     fn month_arithmetic_crosses_years() {
         assert_eq!(months_back(day(2026, 1, 1), 1), day(2025, 12, 1));
         assert_eq!(months_back(day(2026, 3, 1), 14), day(2025, 1, 1));
+    }
+
+    /// Un jeu Riot et un jeu Epic avec base manuelle, un jeu Steam avec temps importé, un jeu à deux sources.
+    fn library() -> Connection {
+        let conn = crate::db::open_in_memory().unwrap();
+        conn.execute_batch(
+            "INSERT INTO games(id, title, sort_title, added_at, manual_baseline_minutes, manual_baseline_at) VALUES
+               ('lol', 'League of Legends', 'league of legends', '2026-11-01T00:00:00Z', 138000, '2026-11-15T10:00:00Z'),
+               ('fn', 'Fortnite', 'fortnite', '2026-11-01T00:00:00Z', 17760, '2026-11-15T10:00:00Z');
+             INSERT INTO games(id, title, sort_title, added_at) VALUES
+               ('hades', 'Hades', 'hades', '2026-11-01T00:00:00Z'),
+               ('duo', 'Duo', 'duo', '2026-11-01T00:00:00Z');
+             INSERT INTO game_sources(id, game_id, source, external_id, installed, launch_method, launch_target, source_playtime_minutes, playtime_synced_at) VALUES
+               ('lol-r', 'lol', 'riot', 'lol', 1, 'launcher_cli', 'x', NULL, NULL),
+               ('fn-e', 'fn', 'epic', 'fn', 1, 'uri', 'x', NULL, NULL),
+               ('hades-s', 'hades', 'steam', '1145360', 1, 'uri', 'x', 600, '2026-11-15T00:00:00Z'),
+               ('duo-l', 'duo', 'local', 'duo', 1, 'exe', 'x', NULL, NULL),
+               ('duo-s', 'duo', 'steam', '42', 0, 'uri', 'x', 30, '2026-11-15T00:00:00Z');
+             INSERT INTO play_sessions(id, game_source_id, started_at, ended_at, duration_seconds) VALUES
+               ('a', 'lol-r', '2026-11-13T20:00:00Z', '2026-11-13T21:00:00Z', 3600),
+               ('b', 'lol-r', '2026-11-16T20:00:00Z', '2026-11-16T21:00:00Z', 3600),
+               ('c', 'fn-e', '2026-11-16T18:00:00Z', '2026-11-16T18:30:00Z', 1800),
+               ('d', 'hades-s', '2026-11-16T10:00:00Z', '2026-11-16T12:00:00Z', 7200),
+               ('e', 'duo-l', '2026-11-16T10:00:00Z', '2026-11-16T11:00:00Z', 3600);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn manual_bases_count_in_their_launcher_totals() {
+        let conn = library();
+        let stats = compute(&conn, &HashSet::new()).unwrap();
+        let minutes = |s: SourceId| stats.by_source.iter().find(|x| x.source == s).map(|x| x.minutes);
+        assert_eq!(minutes(SourceId::Riot), Some(2301 * 60), "base 2300 h + 1 h jouée après la saisie");
+        assert_eq!(minutes(SourceId::Epic), Some(17760 + 30), "base Fortnite + 30 min");
+        assert_eq!(minutes(SourceId::Steam), Some(600 + 120), "temps Steam + sessions depuis la synchronisation");
+        assert_eq!(minutes(SourceId::Local), Some(30 + 60), "jeu à deux sources : compté une fois, pour sa source principale");
+        let sum: i64 = stats.by_source.iter().map(|s| s.minutes).sum();
+        assert_eq!(sum, stats.total_minutes, "la somme des launchers égale le total");
+    }
+
+    #[test]
+    fn game_page_and_stats_show_exactly_the_same_totals() {
+        let conn = library();
+        let games = library::list_games(&conn).unwrap();
+        let stats = compute(&conn, &HashSet::new()).unwrap();
+        assert_eq!(stats.total_minutes, games.iter().map(|g| g.playtime_minutes).sum::<i64>());
+        for top in &stats.top_games {
+            let page = games.iter().find(|g| g.id == top.game_id).unwrap();
+            assert_eq!(top.minutes, page.playtime_minutes, "{} : fiche et statistiques identiques", page.title);
+        }
+        assert_eq!(stats.top_games[0].game_id, "lol");
+        // Les graphiques ne comptent que les sessions réelles (5 sessions, 5 h 30), jamais les bases manuelles.
+        let charted: i64 = stats.monthly.iter().map(|b| b.seconds).sum();
+        assert!(charted <= 3600 + 3600 + 1800 + 7200 + 3600);
+    }
+
+    #[test]
+    fn tray_recent_games_carry_the_same_total() {
+        let conn = library();
+        let recent = library::recent_games(&conn, &HashSet::new(), 5).unwrap();
+        let lol = recent.iter().find(|g| g.id == "lol").unwrap();
+        assert_eq!(lol.playtime_minutes, 2301 * 60);
+        assert!(recent.iter().all(|g| g.installed));
     }
 }

@@ -99,7 +99,7 @@ export function Stats({ onOpenGame, refreshKey }: { onOpenGame: (id: string) => 
           />
         </div>
 
-        <Card title="Temps de jeu suivi" note="Sessions lancées depuis l'application (les heures importées d'une source n'ont pas d'historique daté).">
+        <Card title="Temps de jeu suivi">
           <div className="mb-4">
             <Tabs
               tabs={[
@@ -111,6 +111,9 @@ export function Stats({ onOpenGame, refreshKey }: { onOpenGame: (id: string) => 
             />
           </div>
           <BarChart buckets={period === "weekly" ? stats.weekly : stats.monthly} monthly={period === "monthly"} />
+          <p className="mt-3 text-[11px] text-muted">
+            Sessions enregistrées uniquement : les heures saisies à la main et celles importées d'un launcher n'ont pas de date, elles comptent dans les totaux mais pas dans ce graphique.
+          </p>
         </Card>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

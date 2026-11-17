@@ -1,6 +1,7 @@
 //! LibraryService : fusion des résultats de scan dans la base, dédoublonnage,
 //! disponibilité des disques et vue agrégée pour l'interface.
 use crate::db::{self, new_id};
+use crate::playtime::{game_total_minutes, ManualBase, SourcePart};
 use crate::drives::{drive_letter, is_inside, norm_path, with_drive_letter, DriveSnapshot};
 use crate::models::{now_iso, unix_to_iso, Achievement, DetectedGame, GameSource, LaunchMethod, OwnedGame, SourceId};
 use anyhow::Result;
@@ -383,7 +384,8 @@ pub struct SourceView {
     pub tracked_seconds: i64,
     /// Temps joué depuis la dernière lecture du temps de la source (secondes) ; 0 si la source ne fournit pas de temps.
     pub since_sync_seconds: i64,
-    /// Temps retenu pour cette source (minutes) : temps de la source + sessions depuis, ou somme des sessions.
+    /// Part de cette source dans le temps du jeu (minutes), hors base manuelle : temps de la source + sessions
+    /// depuis sa lecture, ou somme des sessions. Le total du jeu est `GameView::playtime_minutes`.
     pub playtime_minutes: i64,
     pub drive: Option<String>,
 }
@@ -407,11 +409,16 @@ pub struct GameView {
     pub sources: Vec<SourceView>,
     pub installed: bool,
     pub available: bool,
-    /// Temps affiché (règle §5.2) en minutes.
+    /// Temps total du jeu en minutes, calculé par `playtime::game_total_minutes`. C'est la seule valeur à
+    /// utiliser pour afficher, trier ou additionner le temps d'un jeu.
     pub playtime_minutes: i64,
     /// Temps suivi par l'application, en secondes (affiché à part, F-HEU-05).
     pub tracked_seconds: i64,
-    pub manual_playtime_minutes: Option<i64>,
+    /// Base manuelle saisie par l'utilisateur (minutes) et date de la saisie.
+    pub manual_baseline_minutes: Option<i64>,
+    pub manual_baseline_at: Option<String>,
+    /// Sessions qui commencent après la saisie manuelle (secondes) ; 0 sans base manuelle.
+    pub since_manual_seconds: i64,
     /// Part du temps affiché jouée depuis la dernière synchronisation avec la source (secondes).
     pub since_sync_seconds: i64,
     /// Le temps de ce jeu n'est pas suivi (logiciel qui tourne en permanence, par exemple).
@@ -475,6 +482,20 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
             colls.entry(game).or_default().push(coll);
         }
     }
+    // Sessions postérieures à la base manuelle de chaque jeu.
+    let mut since_manual: HashMap<String, i64> = HashMap::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT gs.game_id, SUM(ps.duration_seconds) FROM play_sessions ps
+             JOIN game_sources gs ON gs.id = ps.game_source_id JOIN games g ON g.id = gs.game_id
+             WHERE g.manual_baseline_at IS NOT NULL AND ps.started_at >= g.manual_baseline_at GROUP BY gs.game_id",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+        for row in rows {
+            let (game, secs) = row?;
+            since_manual.insert(game, secs);
+        }
+    }
     let mut by_game: HashMap<String, Vec<GameSource>> = HashMap::new();
     for s in db::all_sources(conn)? {
         by_game.entry(s.game_id.clone()).or_default().push(s);
@@ -482,7 +503,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
 
     let mut stmt = conn.prepare(
         "SELECT id, title, sort_title, cover_path, hero_path, logo_path, description, genres, developer, release_date,
-                favorite, hidden, added_at, manual_playtime_minutes, no_tracking FROM games",
+                favorite, hidden, added_at, manual_baseline_minutes, no_tracking, manual_baseline_at FROM games",
     )?;
     let mut games = Vec::new();
     let mut rows = stmt.query([])?;
@@ -492,8 +513,10 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
         if sources.is_empty() {
             continue;
         }
-        let manual: Option<i64> = r.get(13)?;
-        let mut playtime = 0i64;
+        let manual_minutes: Option<i64> = r.get(13)?;
+        let manual_at: Option<String> = r.get(15)?;
+        let manual = manual_minutes.map(|minutes| ManualBase { minutes, since_seconds: since_manual.get(&id).copied().unwrap_or(0) });
+        let mut parts: Vec<SourcePart> = Vec::new();
         let mut tracked_total = 0i64;
         let mut since_sync_total = 0i64;
         let mut last_played: Option<String> = None;
@@ -501,14 +524,10 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
         for s in sources {
             let (secs, last_tracked, since) = tracked.get(&s.id).cloned().unwrap_or((0, None, 0));
             tracked_total += secs;
-            // Règle §5.2 et E4-13 : si la source fournit un temps, c'est lui qui fait foi ; on y ajoute seulement
-            // ce qui a été joué depuis sa dernière lecture (la prochaine synchronisation le remplacera par le
-            // chiffre de la source). Sinon, le total est la somme des sessions.
-            let (source_minutes, since) = match s.source_playtime_minutes {
-                Some(minutes) => (minutes + since / 60, since),
-                None => (secs / 60, 0),
-            };
-            playtime += source_minutes;
+            let part = SourcePart { source_minutes: s.source_playtime_minutes, session_seconds: secs, since_sync_seconds: since };
+            let since = if s.source_playtime_minutes.is_some() { since } else { 0 };
+            let source_minutes = part.minutes();
+            parts.push(part);
             since_sync_total += since;
             for candidate in [s.last_played_source.clone(), last_tracked].into_iter().flatten() {
                 if last_played.as_deref().map_or(true, |cur| candidate.as_str() > cur) {
@@ -537,9 +556,11 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
             added_at: r.get(12)?,
             installed: views.iter().any(|v| v.source.installed),
             available: views.iter().any(|v| v.source.installed && v.source.available) || !views.iter().any(|v| v.source.installed),
-            playtime_minutes: manual.unwrap_or(playtime),
+            playtime_minutes: game_total_minutes(&parts, manual),
             tracked_seconds: tracked_total,
-            manual_playtime_minutes: manual,
+            manual_baseline_minutes: manual_minutes,
+            manual_baseline_at: manual_at,
+            since_manual_seconds: manual.map_or(0, |m| m.since_seconds),
             since_sync_seconds: if manual.is_some() { 0 } else { since_sync_total },
             no_tracking: r.get(14)?,
             last_played,
@@ -555,28 +576,12 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
     Ok(games)
 }
 
-/// Derniers jeux joués (installés, visibles), du plus récent au plus ancien : (identifiant, titre).
-pub fn recent_games(conn: &Connection, disabled: &HashSet<String>, limit: usize) -> Result<Vec<(String, String)>> {
-    let mut stmt = conn.prepare(
-        "SELECT g.id, g.title, gs.source,
-                max(COALESCE(gs.last_played_source, ''), COALESCE((SELECT MAX(ps.started_at) FROM play_sessions ps WHERE ps.game_source_id = gs.id), '')) AS played
-         FROM games g JOIN game_sources gs ON gs.game_id = g.id
-         WHERE gs.installed = 1 AND g.hidden = 0
-         ORDER BY played DESC",
-    )?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
-    let mut out: Vec<(String, String)> = Vec::new();
-    for row in rows {
-        let (id, title, source, played) = row?;
-        if played.is_empty() || out.len() >= limit {
-            break;
-        }
-        if disabled.contains(&source) || out.iter().any(|(known, _)| *known == id) {
-            continue;
-        }
-        out.push((id, title));
-    }
-    Ok(out)
+/// Derniers jeux joués (installés, visibles), du plus récent au plus ancien, avec leur temps total.
+pub fn recent_games(conn: &Connection, disabled: &HashSet<String>, limit: usize) -> Result<Vec<GameView>> {
+    let mut games: Vec<GameView> = list_visible_games(conn, disabled)?.into_iter().filter(|g| g.installed && !g.hidden && g.last_played.is_some()).collect();
+    games.sort_by(|a, b| b.last_played.cmp(&a.last_played));
+    games.truncate(limit);
+    Ok(games)
 }
 
 /// Bibliothèque sans les sources désactivées par l'utilisateur (F-PAR-02).
@@ -794,6 +799,59 @@ mod tests {
         assert_eq!(list[0].tracked_seconds, 3600, "les sessions sont conservées");
         assert!(path_already_known(&conn, "C:\\Steam\\common\\Alpha\\alpha.exe").unwrap());
         assert!(!path_already_known(&conn, "C:\\Steam\\common\\AlphaTwo\\a.exe").unwrap());
+    }
+
+    /// Jeu Riot (sans temps de la source) avec une base manuelle saisie le 15/11 à 10 h.
+    fn riot_game_with_manual_base(conn: &Connection) -> (String, String) {
+        conn.execute_batch(
+            "INSERT INTO games(id, title, sort_title, added_at, manual_baseline_minutes, manual_baseline_at)
+               VALUES('lol', 'League of Legends', 'league of legends', '2026-11-01T00:00:00Z', 138000, '2026-11-15T10:00:00Z');
+             INSERT INTO game_sources(id, game_id, source, external_id, installed, launch_method, launch_target)
+               VALUES('lol-riot', 'lol', 'riot', 'league_of_legends.live', 1, 'launcher_cli', 'x');",
+        )
+        .unwrap();
+        ("lol".into(), "lol-riot".into())
+    }
+
+    fn add_session(conn: &Connection, id: &str, source: &str, start: &str, end: &str, secs: i64) {
+        conn.execute(
+            "INSERT INTO play_sessions(id, game_source_id, started_at, ended_at, duration_seconds, origin) VALUES(?1, ?2, ?3, ?4, ?5, 'detected')",
+            params![id, source, start, end, secs],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn manual_base_plus_one_hour_after_is_2301_hours() {
+        let conn = db::open_in_memory().unwrap();
+        let (_, source) = riot_game_with_manual_base(&conn);
+        add_session(&conn, "apres", &source, "2026-11-16T20:00:00Z", "2026-11-16T21:00:00Z", 3600);
+        let g = &list_games(&conn).unwrap()[0];
+        assert_eq!(g.playtime_minutes, 2301 * 60);
+        assert_eq!(g.since_manual_seconds, 3600);
+        assert_eq!(g.manual_baseline_at.as_deref(), Some("2026-11-15T10:00:00Z"));
+    }
+
+    #[test]
+    fn session_before_the_manual_entry_is_not_counted() {
+        let conn = db::open_in_memory().unwrap();
+        let (_, source) = riot_game_with_manual_base(&conn);
+        add_session(&conn, "avant", &source, "2026-11-13T20:00:00Z", "2026-11-13T22:00:00Z", 7200);
+        let g = &list_games(&conn).unwrap()[0];
+        assert_eq!(g.playtime_minutes, 2300 * 60, "la session antérieure est déjà comprise dans le chiffre saisi");
+        assert_eq!(g.tracked_seconds, 7200, "elle reste dans l'historique");
+    }
+
+    #[test]
+    fn new_manual_entry_replaces_the_base_and_restarts_the_clock() {
+        let conn = db::open_in_memory().unwrap();
+        let (game, source) = riot_game_with_manual_base(&conn);
+        add_session(&conn, "s1", &source, "2026-11-16T20:00:00Z", "2026-11-16T21:00:00Z", 3600);
+        crate::playtime::set_manual_base(&conn, &game, Some(100 * 60)).unwrap();
+        let g = &list_games(&conn).unwrap()[0];
+        assert_eq!(g.playtime_minutes, 100 * 60, "nouvelle base, les sessions passées ne s'y ajoutent pas");
+        crate::playtime::set_manual_base(&conn, &game, None).unwrap();
+        assert_eq!(list_games(&conn).unwrap()[0].playtime_minutes, 60, "sans base : somme de toutes les sessions");
     }
 
     #[test]

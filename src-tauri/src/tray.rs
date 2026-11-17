@@ -65,8 +65,9 @@ fn build_menu(app: &AppHandle) -> tauri::Result<(Menu<Wry>, usize, String)> {
     if recent.is_empty() {
         recents.append(&MenuItem::new(app, "Aucun jeu lancé récemment", false, none)?)?;
     }
-    for (id, title) in &recent {
-        recents.append(&MenuItem::with_id(app, format!("launch:{id}"), title.replace('&', "&&"), true, none)?)?;
+    for g in &recent {
+        let label = if g.playtime_minutes > 0 { format!("{} – {}", g.title, short_duration(g.playtime_minutes * 60)) } else { g.title.clone() };
+        recents.append(&MenuItem::with_id(app, format!("launch:{}", g.id), label.replace('&', "&&"), true, none)?)?;
     }
     menu.append(&recents)?;
 

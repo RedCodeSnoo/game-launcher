@@ -28,9 +28,9 @@ interface Props {
   headerExtra?: ReactNode;
 }
 
-function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
+function Stat({ label, value, sub, title }: { label: string; value: ReactNode; sub?: ReactNode; title?: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-line bg-panel px-4 py-3">
+    <div className="min-w-0 rounded-lg border border-line bg-panel px-4 py-3" title={title}>
       <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-0.5 truncate text-lg font-semibold">{value}</p>
       {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
@@ -203,7 +203,7 @@ function InfoTab({ game }: { game: Game }) {
 function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; onBack: () => void }) {
   const toasts = useToasts();
   const [title, setTitle] = useState(game.title);
-  const [manual, setManual] = useState(game.manualPlaytimeMinutes !== null ? String(Math.round((game.manualPlaytimeMinutes / 60) * 100) / 100) : "");
+  const [manual, setManual] = useState(game.manualBaselineMinutes !== null ? String(Math.round((game.manualBaselineMinutes / 60) * 100) / 100) : "");
   useEffect(() => setTitle(game.title), [game.title]);
 
   const run = async (action: () => Promise<void>, ok: string) => {
@@ -227,7 +227,10 @@ function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; o
             </Button>
           </div>
         </Field>
-        <Field label="Correction manuelle du temps de jeu (heures)" hint="Remplace le temps affiché. Laissez vide pour revenir au temps calculé.">
+        <Field
+          label="Temps de jeu de départ (heures)"
+          hint="Sert de base : les sessions jouées après la saisie s'y ajoutent. Une nouvelle saisie remplace la base. Laissez vide pour revenir au temps calculé."
+        >
           <div className="flex gap-2">
             <TextInput value={manual} onChange={(e) => setManual(e.target.value)} inputMode="decimal" placeholder="ex. 12,5" className="max-w-40" />
             <Button
@@ -235,7 +238,7 @@ function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; o
                 const hours = Number(manual.replace(",", "."));
                 const value = manual.trim() === "" ? null : Math.round(hours * 60);
                 if (value !== null && !Number.isFinite(hours)) return toasts.error("Nombre d'heures invalide.");
-                void run(() => api.updateGame(game.id, { manualPlaytimeMinutes: value }), value === null ? "Correction supprimée" : "Temps de jeu corrigé");
+                void run(() => api.updateGame(game.id, { manualPlaytimeMinutes: value }), value === null ? "Base supprimée" : "Temps de départ enregistré");
               }}
             >
               Appliquer
@@ -289,6 +292,20 @@ function SettingsTab({ game, extra, onBack }: { game: Game; extra?: ReactNode; o
       </section>
     </div>
   );
+}
+
+/** Détail du temps total, affiché au survol : « 2300 h saisies le 15/11 + 3 h 10 suivies depuis ». */
+export function playtimeDetail(game: Game): string {
+  if (game.manualBaselineMinutes !== null) {
+    const day = game.manualBaselineAt ? new Date(game.manualBaselineAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }) : "?";
+    return `${formatMinutes(game.manualBaselineMinutes)} saisies le ${day} + ${formatSeconds(game.sinceManualSeconds)} suivies depuis`;
+  }
+  const fromSource = game.sources.filter((s) => s.sourcePlaytimeMinutes !== null);
+  if (fromSource.length > 0) {
+    const imported = fromSource.reduce((n, s) => n + (s.sourcePlaytimeMinutes ?? 0), 0);
+    return `${formatMinutes(imported)} d'après ${fromSource.map((s) => SOURCE_LABELS[s.source]).join(", ")} + ${formatSeconds(game.sinceSyncSeconds)} suivies depuis la dernière synchronisation`;
+  }
+  return `${formatSeconds(game.trackedSeconds)} suivies par l'application`;
 }
 
 export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClose, achievements, extraSettings, headerExtra }: Props) {
@@ -379,9 +396,10 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
           <Stat
             label={t("game.playtime")}
             value={formatMinutes(game.playtimeMinutes)}
+            title={playtimeDetail(game)}
             sub={
-              game.manualPlaytimeMinutes !== null
-                ? "corrigé manuellement"
+              game.manualBaselineMinutes !== null
+                ? t("game.manualSince", { t: formatSeconds(game.sinceManualSeconds) })
                 : game.sinceSyncSeconds >= 60
                   ? t("game.sinceSync", { t: formatSeconds(game.sinceSyncSeconds) })
                   : hasSourceTime

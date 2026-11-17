@@ -54,7 +54,11 @@ export interface Game {
   available: boolean;
   playtimeMinutes: number;
   trackedSeconds: number;
-  manualPlaytimeMinutes: number | null;
+  /** Base manuelle saisie (minutes) et date de la saisie ; les sessions suivantes s'y ajoutent. */
+  manualBaselineMinutes: number | null;
+  manualBaselineAt: string | null;
+  /** Sessions qui commencent après la saisie manuelle (secondes). */
+  sinceManualSeconds: number;
   sinceSyncSeconds: number;
   noTracking: boolean;
   lastPlayed: string | null;

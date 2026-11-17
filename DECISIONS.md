@@ -185,3 +185,18 @@ Demande de l'utilisateur (13 novembre 2026) : après l'import des heures Steam, 
 - Pour les temps importés avant cette version, la date retenue est celle de la migration : les anciennes sessions ne sont pas ajoutées au total.
 - Limite connue : si la source n'a pas encore pris en compte une partie au moment de la synchronisation, le total peut reculer de la durée de cette partie jusqu'à la synchronisation suivante.
 - Sans temps fourni par la source (Riot, Battle.net, Epic, jeux locaux), le total reste la somme des sessions. Une correction manuelle prime toujours.
+
+## D36 – Correction manuelle = base datée (bug « le compteur ne bouge plus »)
+
+Cause : le total affiché était `manual.unwrap_or(calculé)` ; une saisie manuelle remplaçait donc le total et les sessions suivantes ne s'y ajoutaient jamais.
+
+Correction : la saisie est une base (`manual_baseline_minutes`) datée (`manual_baseline_at`). Total = base + sessions (lancées ou détectées) qui commencent après la saisie. Une nouvelle saisie remplace la base et repart de maintenant ; vider le champ revient au calcul automatique.
+
+Migration (schéma v4) : la colonne est renommée, les valeurs sont conservées. Leur date de saisie n'était pas enregistrée : elle est retrouvée dans les sauvegardes automatiques quotidiennes, en prenant la **première sauvegarde qui contient déjà la valeur** (borne haute). Ce choix ne compte jamais une session qui aurait pu être incluse dans le chiffre saisi ; il peut au pire oublier une session jouée entre la saisie et la sauvegarde suivante. Sans sauvegarde correspondante, la date retenue est celle de la migration.
+
+## D37 – Une seule fonction de calcul du temps total
+
+Cause du bug « heures saisies absentes des stats par launcher » : les statistiques par launcher additionnaient la part de chaque source (sans la base manuelle) alors que le total général utilisait le temps du jeu.
+
+Correction : `playtime::game_total_minutes` est la seule implémentation ; `GameView::playtime_minutes` en est le résultat et sert partout (fiche, cartes, tri, statistiques, top jeux, jeux récents de la zone de notification). Temps par launcher = somme des totaux des jeux, chaque jeu étant compté une fois pour sa source principale (la première de sa fiche : installée et disponible, celle qui est lancée). Les graphiques par semaine et par mois ne comptent que les sessions réelles (une base manuelle ou un temps importé n'a pas de date), ce qu'indique une note sous le graphique.
+

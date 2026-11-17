@@ -41,6 +41,7 @@ const fr = {
   "game.unhide": "Ne plus masquer",
   "game.playtime": "Temps de jeu",
   "game.tracked": "temps de la source · {t} suivi par l'application",
+  "game.manualSince": "base saisie + {t} suivies depuis",
   "game.sinceSync": "dont {t} joué depuis la dernière synchronisation",
   "game.trackedOnly": "suivi par l'application",
   "game.lastSession": "Dernière session",
