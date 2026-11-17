@@ -1,0 +1,49 @@
+{
+  "order": 1,
+  "id": "light",
+  "name": "Clair",
+  "emoji": "☀️",
+  "description": "Propre et lumineux : blanc cassé, accent indigo.",
+  "scheme": "light",
+  "palette": {
+    "bg": "#f4f3f0",
+    "panel": "#ffffff",
+    "panel2": "#ebeae6",
+    "line": "#d9d7d1",
+    "fg": "#1b1c22",
+    "muted": "#5d6070",
+    "accent": "#4f46e5",
+    "accentFg": "#ffffff",
+    "ok": "#18804b",
+    "warn": "#9a6100",
+    "danger": "#c6283f",
+    "scrim": "#0b0c10",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Inter",
+    "display": "Inter",
+    "scale": 1
+  },
+  "card": {
+    "radius": 10,
+    "border": "solid",
+    "glass": false,
+    "blur": 0,
+    "shadow": "soft",
+    "pattern": "none"
+  },
+  "background": {
+    "scene": "none"
+  },
+  "particles": {
+    "kind": "none",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 1.75,
+    "style": "line"
+  },
+  "sounds": "soft",
+  "motion": 160
+}

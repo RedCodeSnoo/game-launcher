@@ -1,0 +1,50 @@
+{
+  "order": 5,
+  "id": "winter",
+  "name": "Hiver",
+  "emoji": "❄️",
+  "description": "Calme et givré : bleu glacier, blanc et gris perle, flocons et givre sur les cartes.",
+  "scheme": "light",
+  "palette": {
+    "bg": "#eef4f8",
+    "panel": "#ffffffd6",
+    "panel2": "#e2ebf2",
+    "line": "#c7d7e3",
+    "fg": "#13202b",
+    "muted": "#4b6070",
+    "accent": "#1d6fa8",
+    "accentFg": "#ffffff",
+    "ok": "#167a55",
+    "warn": "#925e00",
+    "danger": "#bf2b41",
+    "scrim": "#0b1620",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Inter",
+    "display": "Inter",
+    "scale": 1
+  },
+  "card": {
+    "radius": 14,
+    "border": "frost",
+    "glass": true,
+    "blur": 16,
+    "shadow": "soft",
+    "pattern": "frost"
+  },
+  "background": {
+    "gradient": "linear-gradient(180deg, #d6e8f4 0%, #eaf2f8 48%, #f6f9fc 100%)",
+    "scene": "winter"
+  },
+  "particles": {
+    "kind": "snow",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 1.6,
+    "style": "line"
+  },
+  "sounds": "soft",
+  "motion": 200
+}

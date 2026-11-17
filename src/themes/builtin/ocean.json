@@ -1,0 +1,50 @@
+{
+  "order": 6,
+  "id": "ocean",
+  "name": "Océan",
+  "emoji": "🌊",
+  "description": "Frais comme l'été : turquoise, bleu profond et sable, vagues et bulles.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#062033",
+    "panel": "#0b2c44e0",
+    "panel2": "#103a57",
+    "line": "#1f5274",
+    "fg": "#eaf6f8",
+    "muted": "#9fc2ce",
+    "accent": "#2bc8b9",
+    "accentFg": "#032b29",
+    "ok": "#62d6a0",
+    "warn": "#f2c36b",
+    "danger": "#ff7180",
+    "scrim": "#021320",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Inter",
+    "display": "Inter",
+    "scale": 1
+  },
+  "card": {
+    "radius": 16,
+    "border": "solid",
+    "glass": true,
+    "blur": 14,
+    "shadow": "soft",
+    "pattern": "none"
+  },
+  "background": {
+    "gradient": "linear-gradient(180deg, #0b3a57 0%, #072538 52%, #04192a 100%)",
+    "scene": "ocean"
+  },
+  "particles": {
+    "kind": "bubbles",
+    "density": 0.7
+  },
+  "icons": {
+    "stroke": 1.75,
+    "style": "line"
+  },
+  "sounds": "soft",
+  "motion": 200
+}

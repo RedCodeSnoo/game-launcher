@@ -45,7 +45,7 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { g
         onClick={() => onOpen(game)}
         onDoubleClick={() => onPlay(game)}
         title={`${game.title} – ${stateLabel(game, isRunning)}`}
-        className={`relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-panel2 shadow-md ring-1 ring-line transition group-hover:ring-accent ${
+        className={`game-card relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-panel2 shadow-md ring-1 ring-line transition group-hover:ring-accent ${
           unavailable ? "grayscale" : ""
         } ${!game.installed ? "opacity-55 group-hover:opacity-90" : ""}`}
       >
@@ -57,12 +57,12 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { g
         </span>
         {game.favorite && <Heart size={14} className="absolute right-1.5 top-1.5 fill-danger text-danger drop-shadow" />}
         {unavailable && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/45">
-            <HardDrive size={30} className="text-white/85" />
+          <span className="absolute inset-0 flex items-center justify-center bg-scrim/45">
+            <HardDrive size={30} className="text-on-scrim/85" />
           </span>
         )}
-        {isRunning && <span className="absolute bottom-1.5 left-1.5 rounded bg-ok px-1.5 py-0.5 text-[10px] font-bold uppercase text-black">{t("game.running")}</span>}
-        {game.installed && game.available && !isRunning && <span className="absolute bottom-2 left-2 h-2.5 w-2.5 rounded-full bg-ok ring-2 ring-black/50" />}
+        {isRunning && <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded bg-scrim/80 px-1.5 py-0.5 text-[10px] font-bold uppercase text-ok"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" />{t("game.running")}</span>}
+        {game.installed && game.available && !isRunning && <span className="absolute bottom-2 left-2 h-2.5 w-2.5 rounded-full bg-ok ring-2 ring-scrim/50" />}
       </button>
       {!unavailable && !isRunning && (
         <button
@@ -80,7 +80,7 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { g
           tabIndex={-1}
           aria-label={`Arrêter le suivi de ${game.title}`}
           title="Arrêter le suivi (le jeu n'est pas fermé)"
-          className="absolute right-2 top-[calc(100%-5.25rem)] hidden h-10 w-10 items-center justify-center rounded-full bg-panel text-fg shadow-lg ring-1 ring-line hover:bg-danger hover:text-white group-hover:flex"
+          className="absolute right-2 top-[calc(100%-5.25rem)] hidden h-10 w-10 items-center justify-center rounded-full bg-panel text-fg shadow-lg ring-1 ring-line hover:bg-danger hover:text-on-scrim group-hover:flex"
         >
           <Square size={15} className="fill-current" />
         </button>
@@ -188,7 +188,7 @@ export function GameList({ games, running, onOpen, onPlay, onStop }: Props) {
                   }}
                   aria-label={`Arrêter le suivi de ${game.title}`}
                   title="Arrêter le suivi (le jeu n'est pas fermé)"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-ok hover:bg-danger hover:text-white"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-ok hover:bg-danger hover:text-on-scrim"
                 >
                   <Square size={13} className="fill-current" />
                 </button>

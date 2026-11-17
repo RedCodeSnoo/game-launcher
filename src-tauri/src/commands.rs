@@ -721,6 +721,11 @@ const UI_SETTINGS: &[&str] = &[
     "notify_detected",
     "tracking_exclusions",
     "auto_update_check",
+    "custom_themes",
+    "reduce_motion",
+    "dynamic_theme",
+    "season_theme",
+    "ui_sounds",
 ];
 
 #[tauri::command(async)]
@@ -906,6 +911,60 @@ pub fn install_update(app: AppHandle) -> AppResult<()> {
     crate::updates::install(&app)
 }
 
+// ---------------------------------------------------------------------------
+// Thèmes : image de fond, import et export (V1.2)
+// ---------------------------------------------------------------------------
+
+const MAX_THEME_IMAGE: u64 = 4 * 1024 * 1024;
+const MAX_THEME_JSON: u64 = 8 * 1024 * 1024;
+
+fn extension(path: &Path) -> String {
+    path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default()
+}
+
+/// Image de fond d'un thème perso, intégrée au thème (data URL) pour qu'il reste exportable d'un bloc.
+#[tauri::command(async)]
+pub fn read_image_data_url(path: String) -> AppResult<String> {
+    use base64::Engine;
+    let p = Path::new(&path);
+    let mime = match extension(p).as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        _ => return Err(AppError::new("BAD_FILE_TYPE", path)),
+    };
+    let size = std::fs::metadata(p).map_err(|_| AppError::new("FILE_NOT_FOUND", path.clone()))?.len();
+    if size > MAX_THEME_IMAGE {
+        return Err(AppError::new("FILE_TOO_LARGE", path));
+    }
+    let bytes = std::fs::read(p).map_err(|_| AppError::new("FILE_NOT_FOUND", path.clone()))?;
+    Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+}
+
+/// Lecture d'un thème importé (.json uniquement).
+#[tauri::command(async)]
+pub fn read_text_file(path: String) -> AppResult<String> {
+    let p = Path::new(&path);
+    if extension(p) != "json" {
+        return Err(AppError::new("BAD_FILE_TYPE", path));
+    }
+    let size = std::fs::metadata(p).map_err(|_| AppError::new("FILE_NOT_FOUND", path.clone()))?.len();
+    if size > MAX_THEME_JSON {
+        return Err(AppError::new("FILE_TOO_LARGE", path));
+    }
+    std::fs::read_to_string(p).map_err(|_| AppError::new("FILE_NOT_FOUND", path))
+}
+
+/// Export d'un thème (.json uniquement).
+#[tauri::command(async)]
+pub fn write_text_file(path: String, contents: String) -> AppResult<()> {
+    if extension(Path::new(&path)) != "json" {
+        return Err(AppError::new("BAD_FILE_TYPE", path));
+    }
+    std::fs::write(&path, contents).map_err(|e| AppError::new("IO", e.to_string()))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1018,6 +1077,25 @@ mod tests {
         apply_source_patch(&conn, &id, &SourcePatch { launch_mode: Some("exe".into()), ..Default::default() }).unwrap();
         apply_source_patch(&conn, &id, &SourcePatch { executable_path_override: Some(None), ..Default::default() }).unwrap();
         assert!(!db::get_source(&conn, &id).unwrap().unwrap().direct_launch());
+    }
+
+    #[test]
+    fn theme_files_are_restricted_to_json_and_images() {
+        let tmp = tempfile::tempdir().unwrap();
+        let json = tmp.path().join("theme.json");
+        let txt = tmp.path().join("notes.txt");
+        let png = tmp.path().join("fond.png");
+        write_text_file(json.to_string_lossy().into(), "{\"id\":\"x\"}".into()).unwrap();
+        assert_eq!(read_text_file(json.to_string_lossy().into()).unwrap(), "{\"id\":\"x\"}");
+        assert_eq!(write_text_file(txt.to_string_lossy().into(), "x".into()).unwrap_err().code, "BAD_FILE_TYPE");
+        std::fs::write(&txt, "x").unwrap();
+        assert_eq!(read_text_file(txt.to_string_lossy().into()).unwrap_err().code, "BAD_FILE_TYPE");
+        std::fs::write(&png, [0x89, b'P', b'N', b'G']).unwrap();
+        assert_eq!(read_image_data_url(png.to_string_lossy().into()).unwrap(), "data:image/png;base64,iVBORw==");
+        assert_eq!(read_image_data_url(txt.to_string_lossy().into()).unwrap_err().code, "BAD_FILE_TYPE");
+        let big = tmp.path().join("grand.png");
+        std::fs::write(&big, vec![0u8; (MAX_THEME_IMAGE + 1) as usize]).unwrap();
+        assert_eq!(read_image_data_url(big.to_string_lossy().into()).unwrap_err().code, "FILE_TOO_LARGE");
     }
 
     #[test]

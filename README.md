@@ -25,11 +25,24 @@ Ensuite, l'application se met à jour toute seule (voir plus bas).
 
 | Fiche d'un jeu | Statistiques |
 |---|---|
-| ![Fiche d'un jeu](docs/captures/fiche-jeu.png) | ![Statistiques](docs/captures/statistiques.png) |
+| ![Fiche d'un jeu](docs/captures/fiche-jeu.png) | ![Statistiques](docs/captures/statistiques.jpg) |
 
 *Captures réalisées avec le backend de démonstration (données fictives).*
 
 Les clés API (Steam, SteamGridDB) sont rangées dans le Gestionnaire d'identification de Windows, jamais dans la base ni dans les sauvegardes. Les données locales sont dans `%APPDATA%\com.gamelauncher.app`.
+
+## Thèmes
+
+Dix thèmes, chacun avec son fond, ses particules, ses polices et ses cartes. Paramètres → Apparence : survolez une vignette pour l'essayer, cliquez pour l'adopter. Un éditeur permet de partir d'un thème (accent, image de fond, particules, flou) et de l'exporter en `.json` pour le partager. Options : animations réduites (suit aussi le réglage de Windows), thème dynamique d'après la jaquette du jeu affiché, thème selon la saison, sons d'interface. Les effets s'arrêtent pendant une partie et quand la fenêtre est masquée.
+
+| | | |
+|---|---|---|
+| ![Sombre](docs/captures/themes/dark.jpg) **Sombre** | ![Clair](docs/captures/themes/light.jpg) **Clair** | ![Sakura](docs/captures/themes/sakura.jpg) **Sakura** 🌸 |
+| ![Nuit à Kyoto](docs/captures/themes/kyoto.jpg) **Nuit à Kyoto** 🏮 | ![Automne](docs/captures/themes/autumn.jpg) **Automne** 🍂 | ![Hiver](docs/captures/themes/winter.jpg) **Hiver** ❄️ |
+| ![Océan](docs/captures/themes/ocean.jpg) **Océan** 🌊 | ![Néon](docs/captures/themes/neon.jpg) **Néon** 🌆 | ![Rétro Arcade](docs/captures/themes/retro.jpg) **Rétro Arcade** 👾 |
+| ![OLED](docs/captures/themes/oled.jpg) **OLED** ⚫ | ![Apparence](docs/captures/apparence.jpg) **Paramètres → Apparence** | |
+
+Polices sous licence libre (OFL) et visuels dessinés pour le projet (SVG, dégradés, canvas).
 
 ## Mises à jour automatiques
 

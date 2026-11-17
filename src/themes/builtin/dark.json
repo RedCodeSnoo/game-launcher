@@ -1,0 +1,50 @@
+{
+  "order": 0,
+  "id": "dark",
+  "name": "Sombre",
+  "emoji": "🌑",
+  "description": "Moderne et sobre : anthracite, accent bleu électrique, cartes en verre.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#0d0f15",
+    "panel": "#161922d9",
+    "panel2": "#1f2330",
+    "line": "#2a3042",
+    "fg": "#e9ecf3",
+    "muted": "#9aa2b6",
+    "accent": "#2a63f5",
+    "accentFg": "#ffffff",
+    "ok": "#34c27e",
+    "warn": "#e6a93c",
+    "danger": "#f05a6e",
+    "scrim": "#05070b",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Inter",
+    "display": "Inter",
+    "scale": 1
+  },
+  "card": {
+    "radius": 12,
+    "border": "solid",
+    "glass": true,
+    "blur": 14,
+    "shadow": "soft",
+    "pattern": "none"
+  },
+  "background": {
+    "gradient": "radial-gradient(1200px 700px at 88% -12%, #1a2a5c 0%, transparent 62%), radial-gradient(900px 620px at -8% 112%, #26194a 0%, transparent 58%), #0d0f15",
+    "scene": "aurora"
+  },
+  "particles": {
+    "kind": "none",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 1.75,
+    "style": "line"
+  },
+  "sounds": "soft",
+  "motion": 160
+}

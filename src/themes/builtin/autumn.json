@@ -1,0 +1,50 @@
+{
+  "order": 4,
+  "id": "autumn",
+  "name": "Automne",
+  "emoji": "🍂",
+  "description": "Chaleureux et cosy : orange brûlé, bordeaux et or, feuilles d'érable et grain de papier.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#1e130f",
+    "panel": "#2a1b15e6",
+    "panel2": "#36241c",
+    "line": "#4c3327",
+    "fg": "#f7e9d9",
+    "muted": "#c9ad97",
+    "accent": "#ec8a3c",
+    "accentFg": "#1a0c04",
+    "ok": "#9ccb63",
+    "warn": "#ecb84e",
+    "danger": "#ef6a6a",
+    "scrim": "#110906",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Inter",
+    "display": "Fraunces",
+    "scale": 1
+  },
+  "card": {
+    "radius": 14,
+    "border": "solid",
+    "glass": true,
+    "blur": 10,
+    "shadow": "deep",
+    "pattern": "paper"
+  },
+  "background": {
+    "gradient": "radial-gradient(1000px 620px at 12% -12%, #50261a 0%, transparent 62%), radial-gradient(820px 520px at 104% 104%, #3d1622 0%, transparent 60%), #1e130f",
+    "scene": "autumn"
+  },
+  "particles": {
+    "kind": "leaves",
+    "density": 0.9
+  },
+  "icons": {
+    "stroke": 1.75,
+    "style": "line"
+  },
+  "sounds": "soft",
+  "motion": 200
+}

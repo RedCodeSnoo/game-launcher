@@ -91,6 +91,9 @@ export const api = {
   mergeGames: (keep: string, others: string[]) => call<void>("merge_games", { keep, others }),
   dismissMerge: (title: string) => call<void>("dismiss_merge", { title }),
   getUpdateInfo: () => call<UpdateInfo>("get_update_info"),
+  readImageDataUrl: (path: string) => call<string>("read_image_data_url", { path }),
+  readTextFile: (path: string) => call<string>("read_text_file", { path }),
+  writeTextFile: (path: string, contents: string) => call<void>("write_text_file", { path, contents }),
   checkForUpdates: () => call<UpdateInfo>("check_for_updates"),
   installUpdate: () => call<void>("install_update"),
 };

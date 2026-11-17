@@ -1,0 +1,50 @@
+{
+  "order": 7,
+  "id": "neon",
+  "name": "Néon",
+  "emoji": "🌆",
+  "description": "Rétro-futuriste : noir violacé, magenta et cyan, grille en perspective, lueurs et scanlines.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#0d0614",
+    "panel": "#160b24e6",
+    "panel2": "#22113a",
+    "line": "#3d1f60",
+    "fg": "#f4ecff",
+    "muted": "#b9a8d6",
+    "accent": "#ff3cb8",
+    "accentFg": "#1a0012",
+    "ok": "#3cf5c3",
+    "warn": "#ffd23f",
+    "danger": "#ff5c7a",
+    "scrim": "#07020c",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Rajdhani",
+    "display": "Orbitron",
+    "scale": 1.08
+  },
+  "card": {
+    "radius": 6,
+    "border": "glow",
+    "glass": true,
+    "blur": 10,
+    "shadow": "glow",
+    "pattern": "scanlines"
+  },
+  "background": {
+    "gradient": "linear-gradient(180deg, #10041c 0%, #1b0732 52%, #2a0a3c 100%)",
+    "scene": "neon"
+  },
+  "particles": {
+    "kind": "none",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 1.75,
+    "style": "glow"
+  },
+  "sounds": "soft",
+  "motion": 140
+}

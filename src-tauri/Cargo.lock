@@ -1242,6 +1242,7 @@ name = "game-launcher"
 version = "1.1.1"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chrono",
  "keyring",
  "log",

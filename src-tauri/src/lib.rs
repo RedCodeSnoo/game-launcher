@@ -108,6 +108,11 @@ pub fn run() {
                 None => app.path().app_data_dir()?,
             };
             std::fs::create_dir_all(&data_dir)?;
+            // Images du cache (jaquettes) : autorisées explicitement. La portée `$APPDATA/**` de la configuration
+            // est calculée avant la création du dossier et ne couvre donc pas le tout premier lancement.
+            if let Err(e) = app.asset_protocol_scope().allow_directory(&data_dir, true) {
+                eprintln!("portée des images : {e}");
+            }
             logging::init(&data_dir);
             log::info!("démarrage, données dans {}", data_dir.display());
             let conn = db::open(&data_dir.join("library.db"))?;
@@ -221,6 +226,9 @@ pub fn run() {
             commands::get_merge_suggestions,
             commands::merge_games,
             commands::get_update_info,
+            commands::read_image_data_url,
+            commands::read_text_file,
+            commands::write_text_file,
             commands::check_for_updates,
             commands::install_update,
             commands::dismiss_merge,

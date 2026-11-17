@@ -150,3 +150,11 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Licence MIT, README avec captures (backend de démonstration).
 - Tests : 110 tests Rust (+4 ignorés : 3 de bout en bout, 1 de vérification sur copie de données réelles), 13 tests de l'interface.
 
+## V1.2 – Thèmes (`v1.2.0`)
+
+- Moteur de thèmes JSON + variables CSS, 10 thèmes intégrés avec scènes SVG, particules, polices OFL, motifs et cartes propres à chacun.
+- Paramètres → Apparence : galerie avec aperçu au survol, éditeur, import / export, réduire les animations, thème dynamique, saison, sons.
+- Pause des effets : fenêtre masquée ou en arrière-plan, partie en cours ; animations réduites de Windows respectées.
+- Correctif des jaquettes au premier lancement (D46).
+- Tests : 19 tests des thèmes (validation, contrastes WCAG AA des 10 thèmes, saisons, particules, couleur dominante), 1 test Rust (fichiers de thème). Total : 111 tests Rust, 32 tests de l'interface.
+- Vérification visuelle : 10 thèmes × 4 pages en planches contact ; coût CPU mesuré par thème (D44).

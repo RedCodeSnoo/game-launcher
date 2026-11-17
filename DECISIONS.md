@@ -222,3 +222,38 @@ Compilation locale sans la clé : `npm run build:local` (désactive les artefact
 
 GitHub ne déclenche aucun workflow quand plus de trois tags sont poussés en une fois : lors de la première publication (8 tags), le tag `v1.1.1` a dû être repoussé seul. Pour une nouvelle version, pousser un seul tag (`git push --follow-tags` après `npm version`).
 
+---
+
+# V1.2 → V2.0 (`evolutions-v1.2-v2.0.md`)
+
+## D42 – Moteur de thèmes
+
+Un thème est un fichier JSON (`src/themes/builtin/*.json`, générés par `scripts/make-themes.py`) validé par `src/themes/schema.ts` : palette (13 couleurs, dont un voile et le texte lisible dessus), polices, cartes (arrondi, bordure, verre, ombre, motif), fond (dégradé, scène, image perso), particules, icônes, sons, durée des transitions. Le thème est converti en variables CSS posées sur `<html>`, avec des attributs (`data-pattern`, `data-border`, `data-icons`…) qui activent les détails propres au thème dans `index.css`. Les couleurs, arrondis, polices et tailles de Tailwind sont branchés sur ces variables : plus aucune couleur en dur dans les composants (les couleurs des launchers sont des données, dans `i18n.ts`). Les vignettes de remplacement mêlent la teinte du jeu à l'accent du thème.
+
+Changement de thème : `document.startViewTransition` (fondu enchaîné de 320 ms), sans redémarrage. Le dernier thème est gardé en cache local pour s'afficher dès le premier rendu, sans flash.
+
+## D43 – Ressources visuelles
+
+Polices : uniquement des polices OFL embarquées via Fontsource (Inter, Noto Sans JP, Noto Serif JP, Fraunces, Orbitron, Rajdhani, Press Start 2P, VT323), sous-ensemble latin seulement (l'application marche hors ligne, l'installeur reste léger). Scènes : SVG dessinés pour le projet (`src/themes/scenes.tsx`) : torii et branche de cerisier, pagode et lanternes, érable, sapins enneigés, vagues, soleil rayé et ville néon, paysage en pixels. Motifs (seigaiha, asanoha, grain de papier, scanlines, givre) en SVG ou dégradés CSS. Curseur pixel dessiné pour le projet. Aucune image, personnage ni marque protégés. Les sons sont synthétisés (Web Audio).
+
+## D44 – Effets et performances
+
+- Particules sur un `<canvas>` unique, 30 images/s au plus, résolution 1:1, nombre proportionnel à la surface de la fenêtre et plafonné à 70, halos pré-rendus en sprites.
+- Les scènes animées n'animent que `transform` et `opacity` sur des calques HTML (vagues, grille néon, halos des lanternes) : composition GPU, pas de redessin du SVG.
+- Pause automatique (boucle `requestAnimationFrame` arrêtée, animations CSS suspendues) quand la fenêtre est masquée, quand elle n'a pas le focus (« en arrière-plan ») et pendant une partie. « Réduire les animations » et le réglage « Afficher les animations » de Windows (`prefers-reduced-motion`) suppriment particules et animations.
+- Mesures (Edge sans interface, 1600×900, temps du moteur de rendu sur 20 s, en % d'un cœur) : Sombre 0,2 %, OLED 0 %, Néon 0,3 % (11 % avant le passage aux calques composés), Sakura 2,7 %, Automne 2,8 %, Hiver 2,4 %, Rétro 3,1 %, Kyoto 4 à 5 %, Océan 5 %. Rapporté à une machine moyenne à 8 fils, le pire cas est sous 1 % : dans le budget de 2 %. Dans l'application réelle, fenêtre en arrière-plan (effets en pause) : 0,03 % de la machine.
+- Un voile translucide (40 % du fond) sépare la scène du contenu ; les contrastes des 10 thèmes sont vérifiés par des tests (WCAG AA : 4,5:1 pour le texte, 3:1 pour l'accent et les états).
+
+## D45 – Thème dynamique, saisons, thèmes perso
+
+- Thème dynamique : la couleur dominante de la jaquette (histogramme pondéré par la saturation, gris ignorés) devient l'accent, en gardant la teinte et en ajustant la luminosité pour rester à 3:1 sur la surface du thème ; la jaquette floutée s'ajoute au fond. Lecture des pixels possible car le protocole d'images de Tauri renvoie l'en-tête CORS de la fenêtre.
+- Saison (hémisphère nord) : mars-mai Sakura, juin-août Océan, septembre-novembre Automne, décembre-février Hiver. Choisir un thème à la main désactive l'option.
+- Thèmes perso et importés : stockés dans le réglage `custom_themes` ; l'image de fond est intégrée au thème (data URL, 4 Mo au plus) pour qu'un export `.json` soit autonome. À l'import, tout est revalidé : couleurs hexadécimales, énumérations, dégradés sans `url()`, images PNG/JPEG/WebP uniquement.
+
+## D46 – Correctif : jaquettes au premier lancement
+
+La portée du protocole d'images (`$APPDATA/**`) est calculée par Tauri avant la création du dossier de données ; au tout premier lancement, elle ne correspondait donc à aucun fichier (réponse 403) et les jaquettes ne s'affichaient qu'au redémarrage suivant. Le dossier de données est désormais autorisé explicitement au démarrage (`asset_protocol_scope().allow_directory`), ce qui couvre aussi un dossier choisi par `GAMELAUNCHER_DATA_DIR`. Les erreurs de Tauri (niveau avertissement et plus) sont maintenant écrites dans le journal.
+
+## D47 – Vérification visuelle
+
+Chaque thème est capturé sur la bibliothèque, la fiche jeu, les statistiques et les paramètres (Edge sans interface, backend de démonstration), puis examiné en planches contact. Corrigé grâce à cela : le fond passait devant le contenu non positionné (ordre d'empilement), le soleil Néon traversait les tableaux, la barre d'outils Rétro passait sur deux lignes, les entrées de menu Rétro avaient l'ombre des boutons. Contrôles dans la vraie fenêtre : polices chargées, thème enregistré, thème dynamique sur de vraies jaquettes, mise en pause pendant une partie (un jeu détecté en cours a bien suspendu les effets).

@@ -1,0 +1,50 @@
+{
+  "order": 8,
+  "id": "retro",
+  "name": "Rétro Arcade",
+  "emoji": "👾",
+  "description": "Pixel art des années 80 : noir et couleurs CGA, étoiles en pixels, sons 8 bits.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#05050c",
+    "panel": "#0d0d1a",
+    "panel2": "#191930",
+    "line": "#3c3c66",
+    "fg": "#f4f4f4",
+    "muted": "#acacd0",
+    "accent": "#55ffff",
+    "accentFg": "#000000",
+    "ok": "#55ff55",
+    "warn": "#ffff55",
+    "danger": "#ff6b6b",
+    "scrim": "#000000",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "VT323",
+    "display": "Press Start 2P",
+    "scale": 1.18
+  },
+  "card": {
+    "radius": 0,
+    "border": "pixel",
+    "glass": false,
+    "blur": 0,
+    "shadow": "hard",
+    "pattern": "pixel"
+  },
+  "background": {
+    "gradient": "#05050c",
+    "scene": "retro"
+  },
+  "particles": {
+    "kind": "pixelstars",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 2.5,
+    "style": "pixel"
+  },
+  "sounds": "8bit",
+  "motion": 0
+}

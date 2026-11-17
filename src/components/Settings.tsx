@@ -6,6 +6,7 @@ import { errorMessage, SOURCE_LABELS } from "../i18n";
 import type { SourceStatus } from "../types";
 import { SgdbForm, SteamAccountForm } from "./AccountsSection";
 import { WatchedFoldersPanel } from "./AddGameDialog";
+import { Appearance } from "./Appearance";
 import { UpdateSettings } from "./Updates";
 import { useToasts } from "./Toasts";
 import { Button } from "./ui";
@@ -30,7 +31,7 @@ export function Toggle({ checked, onChange, label, disabled }: { checked: boolea
       onClick={() => onChange(!checked)}
       className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-40 ${checked ? "bg-accent" : "bg-line"}`}
     >
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[1.375rem]" : "left-0.5"}`} />
+      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-on-scrim shadow transition-all ${checked ? "left-[1.375rem]" : "left-0.5"}`} />
     </button>
   );
 }
@@ -102,7 +103,7 @@ function LogsViewer() {
   );
 }
 
-export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme: (t: "dark" | "light") => void }) {
+export function Settings() {
   const toasts = useToasts();
   const [autostart, setAutostart] = useState(false);
   const [prefs, setPrefs] = useState<Record<string, string>>({});
@@ -138,8 +139,12 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-5">
+      <div className="mx-auto flex max-w-5xl flex-col gap-5 px-6 py-5">
         <h1 className="text-lg font-semibold">Paramètres</h1>
+
+        <SettingsCard title="Apparence" description="Survolez un thème pour l'essayer, cliquez pour l'adopter.">
+          <Appearance />
+        </SettingsCard>
 
         <SettingsCard title="Compte Steam" description="Affiche les jeux possédés non installés, les heures de jeu et les succès.">
           <SteamAccountForm />
@@ -155,16 +160,6 @@ export function Settings({ theme, onTheme }: { theme: "dark" | "light"; onTheme:
 
         <SettingsCard title="Dossiers surveillés" description="Pour les jeux sans launcher.">
           <WatchedFoldersPanel />
-        </SettingsCard>
-
-        <SettingsCard title="Apparence">
-          <div className="flex gap-2">
-            {(["dark", "light"] as const).map((t) => (
-              <Button key={t} variant={theme === t ? "primary" : "secondary"} aria-pressed={theme === t} onClick={() => onTheme(t)}>
-                {t === "dark" ? "Thème sombre" : "Thème clair"}
-              </Button>
-            ))}
-          </div>
         </SettingsCard>
 
         <SettingsCard title="Pendant le jeu">

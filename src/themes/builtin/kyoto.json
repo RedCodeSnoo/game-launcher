@@ -1,0 +1,50 @@
+{
+  "order": 3,
+  "id": "kyoto",
+  "name": "Nuit à Kyoto",
+  "emoji": "🏮",
+  "description": "Kyoto la nuit : bleu nuit, laque rouge et or, lanternes, lune et lucioles.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#0b1022",
+    "panel": "#121a33e0",
+    "panel2": "#1b2546",
+    "line": "#2c3760",
+    "fg": "#f3ebdb",
+    "muted": "#aba6bb",
+    "accent": "#e3b44c",
+    "accentFg": "#1a1205",
+    "ok": "#5cc28d",
+    "warn": "#f0a64a",
+    "danger": "#ec5464",
+    "scrim": "#050814",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Noto Serif JP",
+    "display": "Noto Serif JP",
+    "scale": 1
+  },
+  "card": {
+    "radius": 10,
+    "border": "glow",
+    "glass": true,
+    "blur": 12,
+    "shadow": "deep",
+    "pattern": "asanoha"
+  },
+  "background": {
+    "gradient": "radial-gradient(900px 520px at 80% 6%, #1e2c5e 0%, transparent 62%), linear-gradient(180deg, #090e22 0%, #101938 58%, #1a1430 100%)",
+    "scene": "kyoto"
+  },
+  "particles": {
+    "kind": "fireflies",
+    "density": 0.7
+  },
+  "icons": {
+    "stroke": 1.6,
+    "style": "glow"
+  },
+  "sounds": "soft",
+  "motion": 240
+}

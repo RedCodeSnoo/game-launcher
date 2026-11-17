@@ -1,0 +1,50 @@
+{
+  "order": 2,
+  "id": "sakura",
+  "name": "Sakura",
+  "emoji": "🌸",
+  "description": "Le Japon au printemps : rose pâle, crème et prune, pétales de cerisier, torii et vagues seigaiha.",
+  "scheme": "light",
+  "palette": {
+    "bg": "#fbf3f1",
+    "panel": "#fffaf8e0",
+    "panel2": "#f6e4e6",
+    "line": "#ecd0d6",
+    "fg": "#3b1f2b",
+    "muted": "#77505f",
+    "accent": "#c42a60",
+    "accentFg": "#ffffff",
+    "ok": "#2b7d52",
+    "warn": "#9a5a08",
+    "danger": "#b82337",
+    "scrim": "#2a1220",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Noto Sans JP",
+    "display": "Noto Serif JP",
+    "scale": 1
+  },
+  "card": {
+    "radius": 16,
+    "border": "solid",
+    "glass": true,
+    "blur": 12,
+    "shadow": "soft",
+    "pattern": "seigaiha"
+  },
+  "background": {
+    "gradient": "linear-gradient(180deg, #fde4ea 0%, #fbf1ef 42%, #f8e7ea 100%)",
+    "scene": "sakura"
+  },
+  "particles": {
+    "kind": "petals",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 1.5,
+    "style": "line"
+  },
+  "sounds": "soft",
+  "motion": 220
+}

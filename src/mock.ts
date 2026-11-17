@@ -167,6 +167,9 @@ Object.assign(mockHandlers, {
     return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected" }));
   },
   delete_session: () => undefined,
+  read_image_data_url: () => "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  read_text_file: () => { throw { code: "FILE_NOT_FOUND", detail: "" }; },
+  write_text_file: () => undefined,
   // Démonstration : `?update=1` simule une version disponible.
   get_update_info: () => mockUpdate(),
   check_for_updates: () => ({ ...mockUpdate(), lastCheck: new Date().toISOString() }),

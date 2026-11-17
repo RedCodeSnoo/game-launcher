@@ -5,7 +5,7 @@ import { api, imageUrl } from "../api";
 import { errorMessage, SOURCE_LABELS, t } from "../i18n";
 import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelative, formatSeconds, hueOf, percent } from "../lib/format";
 import type { Game, GameSourceView, Session } from "../types";
-import { Cover, SourceBadge } from "./Cover";
+import { Cover, placeholderGradient, SourceBadge } from "./Cover";
 import { LocationSettings } from "./LocationSettings";
 import { useToasts } from "./Toasts";
 import { Button, Field, ProgressBar, Tabs, TextInput } from "./ui";
@@ -330,14 +330,14 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
     <div className="h-full overflow-y-auto">
       <div
         className="relative h-72 w-full bg-cover bg-center"
-        style={{ backgroundImage: hero ? `url("${hero}")` : `linear-gradient(120deg, hsl(${hue} 45% 28%), hsl(${(hue + 60) % 360} 50% 12%))` }}
+        style={{ backgroundImage: hero ? `url("${hero}")` : placeholderGradient(hue, 120) }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/50 to-transparent" />
-        <button onClick={onBack} className="absolute left-5 top-4 flex items-center gap-1.5 rounded-md bg-black/45 px-2.5 py-1.5 text-sm text-white backdrop-blur hover:bg-black/65">
+        <button onClick={onBack} className="absolute left-5 top-4 flex items-center gap-1.5 rounded-md bg-scrim/45 px-2.5 py-1.5 text-sm text-on-scrim backdrop-blur hover:bg-scrim/65">
           <ArrowLeft size={16} /> {t("common.back")}
         </button>
         <div className="absolute inset-x-6 bottom-4 flex items-end gap-5">
-          <div className={`h-44 w-[7.35rem] shrink-0 overflow-hidden rounded-lg shadow-xl ring-1 ring-white/10 ${unavailable ? "grayscale" : ""}`}>
+          <div className={`h-44 w-[7.35rem] shrink-0 overflow-hidden rounded-lg shadow-xl ring-1 ring-on-scrim/10 ${unavailable ? "grayscale" : ""}`}>
             <Cover title={game.title} path={game.coverPath} />
           </div>
           <div className="min-w-0 flex-1 pb-1">

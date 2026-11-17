@@ -16,17 +16,22 @@ export function Cover({ title, path, className = "" }: { title: string; path: st
   return (
     <div
       className={`flex h-full w-full items-center justify-center p-3 text-center ${className}`}
-      style={{ background: `linear-gradient(160deg, hsl(${hue} 45% 32%), hsl(${(hue + 50) % 360} 50% 16%))` }}
+      style={{ background: placeholderGradient(hue) }}
     >
-      <span className="line-clamp-4 text-sm font-semibold text-white/90">{title}</span>
+      <span className="font-display line-clamp-4 text-sm font-semibold text-on-scrim/90">{title}</span>
     </div>
   );
+}
+
+/** Vignette de remplacement : teinte propre au jeu, mêlée aux couleurs du thème. */
+export function placeholderGradient(hue: number, angle = 160): string {
+  return `linear-gradient(${angle}deg, color-mix(in oklch, hsl(${hue} 45% 34%) 72%, var(--accent)), color-mix(in oklch, hsl(${(hue + 50) % 360} 50% 16%) 70%, var(--scrim)))`;
 }
 
 export function SourceBadge({ source, short = false }: { source: SourceId; short?: boolean }) {
   return (
     <span
-      className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+      className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-on-scrim"
       style={{ background: SOURCE_COLORS[source] }}
       title={SOURCE_LABELS[source]}
     >

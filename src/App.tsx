@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, WifiOff } from "lucide-react";
-import { api, on, onFileDrop } from "./api";
+import { api, imageUrl, on, onFileDrop } from "./api";
 import { AchievementsTab } from "./components/Achievements";
 import { AddGameDialog } from "./components/AddGameDialog";
 import { CollectionActions, CollectionsMenu, MergeBanner } from "./components/Collections";
@@ -14,12 +14,12 @@ import { Stats } from "./components/Stats";
 import { ToastProvider, useToasts } from "./components/Toasts";
 import { UpdateBanner } from "./components/Updates";
 import { Wizard } from "./components/Wizard";
+import { Backdrop } from "./themes/Backdrop";
+import { ThemeProvider, useTheme } from "./themes/ThemeContext";
 import { Button } from "./components/ui";
 import { errorMessage, SOURCE_LABELS, t } from "./i18n";
 import { DEFAULT_FILTERS, type Filters, type Section, type SortKey } from "./lib/filter";
 import type { Collection, Game, MergeSuggestion, ScanState, SyncState } from "./types";
-
-type Theme = "dark" | "light";
 
 function sectionTitle(section: Section, collections: Collection[]): string {
   switch (section.kind) {
@@ -53,7 +53,7 @@ function Shell() {
   const [section, setSection] = useState<Section>({ kind: "all" });
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [theme, setTheme] = useState<Theme>("dark");
+  const theme = useTheme();
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [openGameId, setOpenGameId] = useState<string | null>(null);
   const [addDialog, setAddDialog] = useState<{ exe?: string } | null>(null);
@@ -80,7 +80,6 @@ function Shell() {
     api
       .getSettings()
       .then((s) => {
-        if (s.theme === "light" || s.theme === "dark") setTheme(s.theme);
         if (s.view === "list" || s.view === "grid") setView(s.view);
         if (s.sort) setFilters((f) => ({ ...f, sort: s.sort as SortKey, sortDesc: s.sort_desc === "1" }));
         if (s.wizard_done !== "1") setWizard(true);
@@ -91,10 +90,9 @@ function Shell() {
       });
   }, []);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    if (prefsLoaded.current) void api.setSetting("theme", theme).catch(() => {});
-  }, [theme]);
+  // Aucun effet visuel pendant une partie (T1-06).
+  const { setGameRunning, setDynamicImage } = theme;
+  useEffect(() => setGameRunning(running.size > 0), [running, setGameRunning]);
   useEffect(() => {
     if (prefsLoaded.current) void api.setSetting("view", view).catch(() => {});
   }, [view]);
@@ -189,6 +187,9 @@ function Shell() {
   );
 
   const openGame = useMemo(() => games.find((g) => g.id === openGameId) ?? null, [games, openGameId]);
+  // Thème dynamique : couleur et fond tirés de la jaquette du jeu affiché.
+  const dynamicSource = openGame ? (imageUrl(openGame.coverPath) ?? null) : null;
+  useEffect(() => setDynamicImage(dynamicSource), [dynamicSource, setDynamicImage]);
   const closeGame = useCallback(() => setOpenGameId(null), []);
 
   // À l'ouverture d'une fiche : mise à jour discrète des succès et des visuels du jeu.
@@ -238,7 +239,7 @@ function Shell() {
             headerExtra={<CollectionsMenu game={openGame} collections={collections} />}
           />
         ) : page === "settings" ? (
-          <Settings theme={theme} onTheme={setTheme} />
+          <Settings />
         ) : page === "stats" ? (
           <Stats onOpenGame={setOpenGameId} refreshKey={version} />
         ) : (
@@ -280,7 +281,10 @@ function Shell() {
 export default function App() {
   return (
     <ToastProvider>
-      <Shell />
+      <ThemeProvider>
+        <Backdrop />
+        <Shell />
+      </ThemeProvider>
     </ToastProvider>
   );
 }

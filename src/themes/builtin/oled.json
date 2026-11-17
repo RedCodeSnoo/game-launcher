@@ -1,0 +1,50 @@
+{
+  "order": 9,
+  "id": "oled",
+  "name": "OLED",
+  "emoji": "⚫",
+  "description": "Minimaliste : noir pur, blanc et un seul accent, sans effet. Économe sur les écrans OLED.",
+  "scheme": "dark",
+  "palette": {
+    "bg": "#000000",
+    "panel": "#000000",
+    "panel2": "#0e0e0e",
+    "line": "#262626",
+    "fg": "#ffffff",
+    "muted": "#a6a6a6",
+    "accent": "#0a84ff",
+    "accentFg": "#000000",
+    "ok": "#30d158",
+    "warn": "#ffd60a",
+    "danger": "#ff453a",
+    "scrim": "#000000",
+    "onScrim": "#ffffff"
+  },
+  "fonts": {
+    "body": "Inter",
+    "display": "Inter",
+    "scale": 1
+  },
+  "card": {
+    "radius": 10,
+    "border": "solid",
+    "glass": false,
+    "blur": 0,
+    "shadow": "none",
+    "pattern": "none"
+  },
+  "background": {
+    "gradient": "#000000",
+    "scene": "none"
+  },
+  "particles": {
+    "kind": "none",
+    "density": 1
+  },
+  "icons": {
+    "stroke": 1.75,
+    "style": "line"
+  },
+  "sounds": "none",
+  "motion": 120
+}

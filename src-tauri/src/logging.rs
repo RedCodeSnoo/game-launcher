@@ -13,7 +13,8 @@ struct FileLogger {
 
 impl Log for FileLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info && metadata.target().starts_with("game_launcher")
+        // Nos messages jusqu'au niveau Info ; les erreurs de Tauri et de ses plugins aussi (diagnostic).
+        (metadata.level() <= Level::Info && metadata.target().starts_with("game_launcher")) || (metadata.level() <= Level::Warn && metadata.target().starts_with("tauri"))
     }
 
     fn log(&self, record: &Record) {
