@@ -25,7 +25,15 @@
 - **Processus « suspendus »** (piste d'E1-05) : non distingués des processus actifs ; aucun cas réel observé. « Arrêter le suivi » couvre ce cas.
 - **Teamfight Tactics** : son exécutable de partie n'est pas connu avec certitude ; s'il se joue par `League of Legends.exe`, ses parties seront comptées sur League of Legends.
 
+### Intégrations (V1.5)
+
+- **Discord Rich Presence** : le protocole est testé (trames, activité) mais pas avec un vrai client Discord, faute d'identifiant d'application. À essayer : créer une application sur discord.com/developers, coller son identifiant dans Paramètres → Intégrations, lancer un jeu Discord ouvert.
+- **Durée de vie (IGDB)** : analyse testée sur des réponses d'exemple ; aucun appel authentifié fait (pas d'identifiants Twitch).
+- **Captures Xbox Game Bar et NVIDIA** : logique testée sur des dossiers simulés ; sur ce PC seules des captures Steam ont été trouvées en réel.
+
 ## Non fait
+
+- **Fusion de bibliothèques entre PC** : la synchronisation par dossier remplace la bibliothèque à la restauration ; elle ne fusionne pas deux historiques modifiés en parallèle.
 
 - **Objectifs de temps de jeu** (S2-14, « Could ») : objectif hebdomadaire ou limite quotidienne avec rappel doux. Non fait en V1.3.
 

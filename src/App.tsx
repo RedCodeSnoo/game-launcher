@@ -9,6 +9,7 @@ import { GameDetail } from "./components/GameDetail";
 import { Backlog } from "./components/Backlog";
 import { CommandPalette } from "./components/CommandPalette";
 import { Home } from "./components/Home";
+import { FreeGamesCard, NewsFeedCard } from "./components/Integrations";
 import { Library, type LibraryView } from "./components/Library";
 import { Roulette } from "./components/Roulette";
 import { SessionJournal } from "./components/SessionJournal";
@@ -274,7 +275,21 @@ function Shell() {
             headerExtra={<CollectionsMenu game={openGame} collections={collections} />}
           />
         ) : page === "home" ? (
-          <Home games={games} running={running} onPlay={play} onOpen={openGameById} onStats={() => goPage("stats")} onBacklog={() => goPage("backlog")} onRoulette={() => setRoulette(true)} />
+          <Home
+            games={games}
+            running={running}
+            onPlay={play}
+            onOpen={openGameById}
+            onStats={() => goPage("stats")}
+            onBacklog={() => goPage("backlog")}
+            onRoulette={() => setRoulette(true)}
+            extra={
+              <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+                <FreeGamesCard />
+                <NewsFeedCard />
+              </div>
+            }
+          />
         ) : page === "backlog" ? (
           <Backlog games={games} onOpen={openGameById} />
         ) : page === "settings" ? (

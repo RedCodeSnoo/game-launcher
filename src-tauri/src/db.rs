@@ -135,6 +135,12 @@ const MIGRATIONS: &[&str] = &[
     ALTER TABLE games ADD COLUMN notes TEXT;
     ALTER TABLE play_sessions ADD COLUMN note TEXT;
     "#,
+    // v7 (V1.5) : durée de vie d'après IGDB (minutes) et date de la dernière recherche.
+    r#"
+    ALTER TABLE games ADD COLUMN time_to_beat_main INTEGER;
+    ALTER TABLE games ADD COLUMN time_to_beat_full INTEGER;
+    ALTER TABLE games ADD COLUMN time_to_beat_checked TEXT;
+    "#,
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

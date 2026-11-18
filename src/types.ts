@@ -139,6 +139,7 @@ export interface Accounts {
   steamKeySet: boolean;
   localSteamId: string | null;
   sgdbKeySet: boolean;
+  igdbSet: boolean;
 }
 
 export interface StoreMatch {
@@ -323,3 +324,49 @@ export interface DayDetail {
   games: { gameId: string; title: string; coverPath: string | null; seconds: number }[];
   sessions: { id: string; gameId: string; gameTitle: string; startedAt: string; endedAt: string; durationSeconds: number; origin: "app" | "detected"; note: string | null }[];
 }
+
+// --- Intégrations (V1.5) ---
+
+export interface FreeGame {
+  id: string;
+  title: string;
+  url: string;
+  image: string | null;
+  start: string;
+  end: string;
+  current: boolean;
+}
+
+export interface NewsItem {
+  id: string;
+  appid: string;
+  gameId: string | null;
+  gameTitle: string | null;
+  title: string;
+  url: string;
+  date: string;
+  feed: string;
+  excerpt: string;
+}
+
+export interface Screenshot {
+  path: string;
+  takenAt: string | null;
+  source: "steam" | "xbox" | "nvidia" | "custom";
+}
+
+export interface SyncManifest {
+  appVersion: string;
+  exportedAt: string;
+  machine: string;
+  games: number;
+  sessions: number;
+}
+
+export interface SyncInfo {
+  folder: string | null;
+  auto: boolean;
+  last: string | null;
+  remote: SyncManifest | null;
+}
+

@@ -21,6 +21,7 @@ Ensuite, l'application se met à jour toute seule (voir plus bas).
 - **Organisation** : accueil « Continuer à jouer », backlog en colonnes avec statuts (À jouer, En cours, Terminé, 100 %…), note sur 10 et notes, journal de session, recherche rapide `Ctrl+K`, roulette « Je sais pas à quoi jouer » 🎲, collections par glisser-déposer et collections automatiques, vues grille, liste ou bandeaux.
 - **Statistiques et séries** 🔥 : série de jours joués (avec jokers et rappel du soir), grille d'activité façon GitHub, temps par semaine et par mois, par launcher, par genre, top jeux, carte des habitudes, records, succès Steam (avec rareté) et badges.
 - **Jaquettes et fiches** automatiques (cache Steam, catalogue Epic, SteamGridDB en option).
+- **Intégrations** : jeux gratuits Epic de la semaine, actualités Steam, galerie de captures d'écran (Steam, Xbox Game Bar, NVIDIA), Discord Rich Presence, durée de vie des jeux (IGDB, facultatif), sauvegarde et synchronisation vers OneDrive, Google Drive ou une clé USB.
 - **Zone de notification** : GameLauncher reste actif fenêtre fermée, menu des jeux récents et du jeu en cours, démarrage avec Windows.
 - Favoris, collections, filtres et tris, thème sombre ou clair, sauvegarde et restauration.
 

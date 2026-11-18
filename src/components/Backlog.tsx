@@ -34,8 +34,12 @@ export function Backlog({ games, onOpen }: { games: Game[]; onOpen: (id: string)
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-3 px-6 py-4">
-        <h1 className="text-lg font-semibold">Backlog</h1>
-        <span className="text-sm text-muted">Glissez une carte d'une colonne à l'autre pour changer son statut.</span>
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold">Backlog</h1>
+          <p className="max-w-2xl text-sm text-muted">
+            Votre liste de jeux à faire : rangez chaque jeu selon où vous en êtes (à jouer, en cours, terminé…). Ajoutez un jeu avec la recherche ci-contre, depuis le menu « Statut » de sa fiche, ou en glissant sa jaquette sur « Backlog » dans la barre latérale ; glissez une carte d'une colonne à l'autre pour changer son statut.
+          </p>
+        </div>
         <div className="relative ml-auto w-72">
           <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" />
           <input

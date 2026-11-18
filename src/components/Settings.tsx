@@ -7,6 +7,7 @@ import type { SourceStatus } from "../types";
 import { SgdbForm, SteamAccountForm } from "./AccountsSection";
 import { WatchedFoldersPanel } from "./AddGameDialog";
 import { Appearance } from "./Appearance";
+import { IntegrationSettings } from "./Integrations";
 import { UpdateSettings } from "./Updates";
 import { useToasts } from "./Toasts";
 import { Button } from "./ui";
@@ -233,6 +234,10 @@ export function Settings() {
           </div>
           {option("start_minimized", "Démarrer réduit dans la zone de notification", "S'applique au démarrage avec Windows : la fenêtre ne s'ouvre pas, seule l'icône apparaît.", true, !autostart)}
           </div>
+        </SettingsCard>
+
+        <SettingsCard title="Intégrations" description="Discord, jeux gratuits Epic, actualités Steam, durée de vie des jeux, captures d'écran, sauvegarde dans un dossier.">
+          <IntegrationSettings />
         </SettingsCard>
 
         <SettingsCard title="Mises à jour" description="Nouvelles versions publiées sur GitHub, vérifiées et signées avant installation.">

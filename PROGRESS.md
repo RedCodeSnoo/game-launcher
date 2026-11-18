@@ -175,3 +175,10 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Recherche rapide Ctrl+K, roulette « Je sais pas à quoi jouer », collections par glisser-déposer et collections automatiques, taille des jaquettes et vue en bandeaux.
 - Tests : 5 tests d'organisation (collections automatiques, roulette, recherche floue, classement) dont un qui a révélé un bug corrigé (bonus de classement appliqué à des titres sans correspondance), 1 test Rust (statut, note, notes). Total : 129 tests Rust, 37 tests de l'interface.
 - Vérifié visuellement : accueil, backlog, Ctrl+K, roulette, vue en bandeaux dans Nuit à Kyoto et Sakura ; barre d'outils et colonnes ajustées.
+
+## V1.5 – Intégrations (`v1.5.0`)
+
+- Jeux gratuits Epic (accueil, notification optionnelle), actualités Steam (accueil et fiche), galerie de captures (Steam, Game Bar, NVIDIA, dossiers perso), Discord Rich Presence, durée de vie IGDB, sauvegarde et synchronisation vers un dossier.
+- Tests : promotions Epic (réponse réelle enregistrée), actualités Steam et nettoyage du texte, trames et activité Discord, captures (sources, correspondance des titres), IGDB (choix du jeu, durées), synchronisation (export, empreinte, restauration sur un autre PC). Total : 137 tests Rust (+5 ignorés : bout en bout, données réelles, services en ligne), 37 tests de l'interface.
+- Vérifié en réel (test `live_integrations`) : jeux gratuits Epic du moment (Knightica, puis Mark of the Deep), actualités de Hades, 2 captures Steam trouvées pour Lethal Company.
+- Non vérifié : Discord (il faut l'identifiant d'une application Discord de l'utilisateur), IGDB (il faut des identifiants Twitch) ; voir `TODO.md`.

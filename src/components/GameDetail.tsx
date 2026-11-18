@@ -7,12 +7,13 @@ import { formatDate, formatDateTime, formatLooseDate, formatMinutes, formatRelat
 import type { Game, GameSourceView, GameStatus, Session } from "../types";
 import { STATUSES } from "../lib/organize";
 import { ActivityGrid } from "./ActivityGrid";
+import { GameNewsTab, ScreenshotsTab, timeToBeatText } from "./Integrations";
 import { Cover, placeholderGradient, SourceBadge } from "./Cover";
 import { LocationSettings } from "./LocationSettings";
 import { useToasts } from "./Toasts";
 import { Button, Field, ProgressBar, Tabs, TextInput } from "./ui";
 
-export type DetailTab = "achievements" | "sessions" | "notes" | "info" | "settings";
+export type DetailTab = "achievements" | "sessions" | "notes" | "news" | "screenshots" | "info" | "settings";
 
 /** Note sur 10 : dix pastilles cliquables (un second clic sur la note actuelle l'efface). */
 function Rating({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
@@ -269,6 +270,7 @@ function InfoTab({ game }: { game: Game }) {
         {game.genres.length > 0 && <InfoRow label="Genres">{game.genres.join(", ")}</InfoRow>}
         {game.developer && <InfoRow label="Développeur">{game.developer}</InfoRow>}
         {game.releaseDate && <InfoRow label="Date de sortie">{formatLooseDate(game.releaseDate)}</InfoRow>}
+        {timeToBeatText(game) && <InfoRow label="Durée de vie (IGDB)">{timeToBeatText(game)}</InfoRow>}
         <InfoRow label="Ajouté le">{formatDate(game.addedAt)}</InfoRow>
       </dl>
       {game.sources.map((s) => (
@@ -541,6 +543,8 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
             { id: "sessions", label: t("tab.sessions") },
             { id: "info", label: t("tab.info") },
             { id: "notes", label: game.notes ? "Notes ✎" : "Notes" },
+            ...(game.sources.some((s) => s.source === "steam") ? [{ id: "news" as DetailTab, label: "Actualités" }] : []),
+            { id: "screenshots", label: "Captures" },
             { id: "settings", label: t("tab.settings") },
           ]}
           value={tab}
@@ -551,6 +555,8 @@ export function GameDetail({ game, isRunning, onBack, onPlay, onStop, onForceClo
           {tab === "sessions" && <SessionsTab game={game} />}
           {tab === "info" && <InfoTab game={game} />}
           {tab === "notes" && <NotesTab key={game.id} game={game} />}
+          {tab === "news" && <GameNewsTab game={game} />}
+          {tab === "screenshots" && <ScreenshotsTab game={game} />}
           {tab === "settings" && <SettingsTab key={game.id} game={game} extra={extraSettings} onBack={onBack} />}
         </div>
       </div>

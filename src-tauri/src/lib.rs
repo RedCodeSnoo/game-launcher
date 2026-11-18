@@ -1,12 +1,16 @@
 //! Cœur applicatif du launcher (voir cahier-des-charges-launcher.md, §7).
 pub mod activity;
 pub mod backup;
+pub mod cloudsync;
 pub mod commands;
 pub mod dashboard;
 pub mod db;
+pub mod discord;
 pub mod drives;
 pub mod error;
 pub mod http;
+pub mod igdb;
+pub mod integrations;
 pub mod launch;
 pub mod library;
 pub mod logging;
@@ -15,6 +19,7 @@ pub mod models;
 pub mod online;
 pub mod playtime;
 pub mod procs;
+pub mod screenshots;
 pub mod providers;
 pub mod secrets;
 pub mod state;
@@ -121,6 +126,96 @@ fn streak_reminder_loop(state: Shared, app: AppHandle) {
     }
 }
 
+/// Jeux gratuits Epic : vérification 1 min après le démarrage puis toutes les 6 h ; notification optionnelle.
+fn free_games_loop(state: Shared, app: AppHandle) {
+    std::thread::sleep(std::time::Duration::from_secs(60));
+    loop {
+        match integrations::refresh_free_games(&state.db) {
+            Ok((_, fresh)) => {
+                let notify_on = db::get_setting(&state.conn(), "epic_free_notify").as_deref() == Some("1");
+                if notify_on && !fresh.is_empty() {
+                    let titles = fresh.iter().map(|g| g.title.as_str()).collect::<Vec<_>>().join(", ");
+                    notify(&app, "🎁 Gratuit cette semaine sur Epic", &titles);
+                }
+                use tauri::Emitter;
+                let _ = app.emit("free-games-updated", serde_json::Value::Null);
+            }
+            Err(e) => log::info!("jeux gratuits Epic : {e:#}"),
+        }
+        std::thread::sleep(std::time::Duration::from_secs(6 * 3600));
+    }
+}
+
+/// Discord Rich Presence : suit le jeu en cours (toutes les 8 s, aucune requête réseau).
+fn discord_loop(state: Shared) {
+    let mut ipc: Option<discord::DiscordIpc> = None;
+    let mut shown: Option<(String, i64)> = None;
+    let mut last_error = std::time::Instant::now() - std::time::Duration::from_secs(600);
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(8));
+        let (enabled, client_id) = {
+            let conn = state.conn();
+            (db::get_setting(&conn, "discord_rpc").as_deref() == Some("1"), db::get_setting(&conn, "discord_client_id").unwrap_or_default())
+        };
+        let wanted = if enabled { state.tracker.running_info().into_iter().find_map(|r| r.started_at.map(|s| (r.game_id, r.title, s))) } else { None };
+        let key = wanted.as_ref().map(|(id, _, s)| (id.clone(), *s));
+        if key == shown {
+            continue;
+        }
+        if wanted.is_none() && ipc.is_none() {
+            shown = None;
+            continue;
+        }
+        if ipc.is_none() {
+            if last_error.elapsed() < std::time::Duration::from_secs(60) {
+                continue;
+            }
+            match discord::DiscordIpc::connect(client_id.trim()) {
+                Ok(c) => ipc = Some(c),
+                Err(e) => {
+                    log::info!("Discord : {e:#}");
+                    last_error = std::time::Instant::now();
+                    continue;
+                }
+            }
+        }
+        let activity = wanted.as_ref().map(|(game_id, title, start)| {
+            let cover = db::sources_of_game(&state.conn(), game_id).ok().and_then(|s| s.iter().find_map(|s| discord::public_cover(s.source, &s.external_id)));
+            discord::activity(title, *start, cover.as_deref(), "GameLauncher")
+        });
+        let ok = ipc.as_mut().map(|c| c.set_activity(activity)).transpose();
+        match ok {
+            Ok(_) => {
+                shown = key;
+                if wanted.is_none() {
+                    ipc = None; // plus rien à afficher : on libère le tube
+                }
+            }
+            Err(e) => {
+                log::info!("Discord : {e:#}");
+                ipc = None;
+                last_error = std::time::Instant::now();
+            }
+        }
+    }
+}
+
+/// Synchronisation automatique vers le dossier choisi : au plus toutes les 10 minutes, si les données ont changé.
+fn cloud_sync_loop(state: Shared) {
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(600));
+        let conn = state.conn();
+        if let Some(folder) = cloudsync::auto_due(&conn) {
+            if folder.is_dir() {
+                match cloudsync::export(&conn, &folder) {
+                    Ok(m) => log::info!("synchronisation vers le dossier : {} jeux, {} sessions", m.games, m.sessions),
+                    Err(e) => log::warn!("synchronisation vers le dossier : {e:#}"),
+                }
+            }
+        }
+    }
+}
+
 pub fn run() {
     let autostarted = std::env::args().any(|a| a == system::AUTOSTART_ARG);
     let app = tauri::Builder::default()
@@ -194,6 +289,20 @@ pub fn run() {
                 std::thread::spawn(move || streak_reminder_loop(state, handle));
             }
 
+            // Intégrations de fond : jeux gratuits Epic, présence Discord, synchronisation vers un dossier.
+            {
+                let (state, handle) = (state.clone(), app.handle().clone());
+                std::thread::spawn(move || free_games_loop(state, handle));
+            }
+            {
+                let state = state.clone();
+                std::thread::spawn(move || discord_loop(state));
+            }
+            {
+                let state = state.clone();
+                std::thread::spawn(move || cloud_sync_loop(state));
+            }
+
             // Mises à jour : au démarrage puis toutes les 6 h, fenêtre ouverte ou non.
             {
                 let handle = app.handle().clone();
@@ -225,6 +334,7 @@ pub fn run() {
             commands::update_session,
             commands::install_game,
             commands::open_path,
+            commands::open_url,
             commands::add_local_game,
             commands::get_watched_folders,
             commands::add_watched_folder,
@@ -253,6 +363,14 @@ pub fn run() {
             commands::get_activity_day,
             commands::get_streaks,
             commands::set_session_note,
+            commands::get_free_games,
+            commands::get_game_news,
+            commands::get_news_feed,
+            commands::get_screenshots,
+            commands::set_igdb_credentials,
+            commands::get_sync_info,
+            commands::sync_now,
+            commands::restore_from_folder,
             commands::get_sources,
             commands::set_source_enabled,
             commands::get_settings,

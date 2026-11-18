@@ -117,6 +117,21 @@ export const mockHandlers: Record<string, (args: Args) => unknown> = {
 };
 
 const notify = () => mockEmit("library-updated", null);
+const mockNews = () =>
+  mockState.games
+    .filter((g) => g.sources[0].source === "steam")
+    .slice(0, 5)
+    .map((g, i) => ({
+      id: `n${i}`,
+      appid: g.sources[0].externalId,
+      gameId: g.id,
+      gameTitle: g.title,
+      title: ["Mise à jour 1.4 : nouveau mode coopératif", "Patch notes : équilibrage et corrections", "Événement d'automne disponible", "Feuille de route 2027", "Soldes : -60 % ce week-end"][i],
+      url: "https://store.steampowered.com/news/",
+      date: new Date(Date.now() - i * 1.7e8).toISOString(),
+      feed: "Community Announcements",
+      excerpt: "Une nouvelle mise à jour arrive avec son lot de nouveautés, d'améliorations de performances et de corrections attendues par la communauté.",
+    }));
 let mockUpdateState = "idle";
 const mockUpdate = () => ({
   currentVersion: "1.1.1",
@@ -173,6 +188,21 @@ Object.assign(mockHandlers, {
     return [0, 1, 2].map((i) => ({ id: `ps${i}`, source: g.sources[0].source, startedAt: new Date(Date.now() - (i + 1) * 9e7).toISOString(), endedAt: new Date(Date.now() - (i + 1) * 9e7 + 3.6e6).toISOString(), durationSeconds: Math.floor(g.trackedSeconds / 3), active: false, origin: i === 1 ? "app" : "detected", note: i === 1 ? "Boss du chapitre 3 battu" : null }));
   },
   delete_session: () => undefined,
+  open_url: () => undefined,
+  get_free_games: () => ({
+    games: [
+      { id: "1", title: "Lanternes du Nord", url: "https://store.epicgames.com/fr/free-games", image: null, start: new Date(Date.now() - 3 * 864e5).toISOString(), end: new Date(Date.now() + 4 * 864e5).toISOString(), current: true },
+      { id: "2", title: "Cités de Verre", url: "https://store.epicgames.com/fr/free-games", image: null, start: new Date(Date.now() + 4 * 864e5).toISOString(), end: new Date(Date.now() + 11 * 864e5).toISOString(), current: false },
+    ],
+    checkedAt: new Date().toISOString(),
+  }),
+  get_game_news: (a: Args) => mockNews().filter((_, i) => i < 4).map((n) => ({ ...n, gameId: String(a.gameId) })),
+  get_news_feed: () => mockNews(),
+  get_screenshots: () => [],
+  set_igdb_credentials: () => undefined,
+  get_sync_info: () => ({ folder: null, auto: false, last: null, remote: null }),
+  sync_now: () => ({ appVersion: "1.5.0", exportedAt: new Date().toISOString(), machine: "PC-DEMO", games: mockState.games.length, sessions: 420 }),
+  restore_from_folder: () => ({ appVersion: "1.5.0", exportedAt: new Date().toISOString(), machine: "PC-DEMO", games: mockState.games.length, sessions: 420 }),
   set_session_note: () => notify(),
   read_image_data_url: () => "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
   read_text_file: () => { throw { code: "FILE_NOT_FOUND", detail: "" }; },
@@ -232,7 +262,7 @@ Object.assign(mockHandlers, {
   },
 });
 
-let accounts = { steamId: null as string | null, steamKeySet: false, localSteamId: "76561198000000001", sgdbKeySet: false };
+let accounts = { steamId: null as string | null, steamKeySet: false, localSteamId: "76561198000000001", sgdbKeySet: false, igdbSet: false };
 
 Object.assign(mockHandlers, {
   get_accounts: () => accounts,

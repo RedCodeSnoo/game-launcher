@@ -138,11 +138,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const reduced = options.reduceMotion || systemReduced;
   const fxActive = !reduced && visible && focused && !gameRunning;
 
-  const firstApply = useRef(true);
+  // Fondu enchaîné seulement pour un vrai changement de thème : jamais pour un aperçu au survol (ni en sortant de
+  // l'aperçu), ni quand seul l'accent dynamique change. Sinon chaque survol refaisait un fondu de toute la fenêtre.
+  const lastApplied = useRef<{ id: string; preview: boolean } | null>(null);
   useEffect(() => {
-    applyTheme(active, !firstApply.current);
-    firstApply.current = false;
-  }, [active]);
+    const isPreview = previewTheme !== null;
+    const prev = lastApplied.current;
+    const fade = prev !== null && !isPreview && !prev.preview && prev.id !== active.id;
+    applyTheme(active, fade);
+    lastApplied.current = { id: active.id, preview: isPreview };
+  }, [active, previewTheme]);
 
   useEffect(() => {
     const root = document.documentElement;

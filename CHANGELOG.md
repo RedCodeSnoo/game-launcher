@@ -2,6 +2,19 @@
 
 Chaque section `## [X.Y.Z]` devient le texte de la Release GitHub et de la bannière de mise à jour dans l'application.
 
+## [1.5.0] – 2026-11-18
+
+**Intégrations** 🔌
+
+- **Jeux gratuits Epic de la semaine** sur l'accueil (en ce moment et à venir), avec une notification optionnelle quand de nouveaux jeux deviennent gratuits.
+- **Actualités** de vos jeux Steam (API officielle de Steam) : fil sur l'accueil et onglet Actualités dans la fiche.
+- **Galerie de captures d'écran** dans la fiche de chaque jeu : Steam, Xbox Game Bar, NVIDIA et vos propres dossiers, en plein écran.
+- **Discord Rich Presence** (option) : « Joue à <jeu> » avec la jaquette et le temps écoulé.
+- **Durée de vie des jeux** (histoire principale, 100 %) depuis IGDB, avec vos identifiants Twitch (facultatif) ; utilisée par le filtre « durée courte » de la roulette.
+- **Sauvegarde et synchronisation** vers un dossier au choix (OneDrive, Google Drive, clé USB…) : heures, notes, thèmes perso et réglages, automatique ou à la demande, avec restauration sur un autre PC.
+- Correction : choisir ou survoler un thème ne fait plus clignoter toute la fenêtre (aperçu instantané après un court arrêt de la souris, fondu seulement pour un vrai changement).
+- La page Backlog explique à quoi elle sert et comment y ajouter des jeux.
+
 ## [1.4.0] – 2026-11-18
 
 **Organisation** 🗂️

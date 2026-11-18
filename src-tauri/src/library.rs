@@ -429,6 +429,9 @@ pub struct GameView {
     /// Note personnelle sur 10 (O-03).
     pub rating: Option<i64>,
     pub notes: Option<String>,
+    /// Durée de vie (minutes) : histoire principale et 100 %, d'après IGDB (V1.5).
+    pub time_to_beat_main: Option<i64>,
+    pub time_to_beat_full: Option<i64>,
     pub last_played: Option<String>,
     pub last_session_seconds: Option<i64>,
     pub ach_total: i64,
@@ -509,7 +512,7 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
 
     let mut stmt = conn.prepare(
         "SELECT id, title, sort_title, cover_path, hero_path, logo_path, description, genres, developer, release_date,
-                favorite, hidden, added_at, manual_baseline_minutes, no_tracking, manual_baseline_at, status, status_changed_at, rating, notes FROM games",
+                favorite, hidden, added_at, manual_baseline_minutes, no_tracking, manual_baseline_at, status, status_changed_at, rating, notes, time_to_beat_main, time_to_beat_full FROM games",
     )?;
     let mut games = Vec::new();
     let mut rows = stmt.query([])?;
@@ -573,6 +576,8 @@ pub fn list_games(conn: &Connection) -> Result<Vec<GameView>> {
             status_changed_at: r.get(17)?,
             rating: r.get(18)?,
             notes: r.get(19)?,
+            time_to_beat_main: r.get(20)?,
+            time_to_beat_full: r.get(21)?,
             last_played,
             last_session_seconds: last_session.get(&id).copied(),
             ach_total,

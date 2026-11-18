@@ -128,12 +128,18 @@ fn sync_source_achievements(state: &AppState, provider: &dyn providers::GameProv
 /// Rafraîchit un seul jeu à la demande (ouverture de sa fiche) : succès, images, description.
 /// Renvoie vrai si quelque chose a changé.
 pub fn refresh_game(state: &AppState, game_id: &str, force: bool) -> Result<bool> {
+    // Durée de vie (IGDB, facultatif) : une recherche par jeu tous les 30 jours au plus.
+    let ttb_changed = refresh_time_to_beat(state, game_id, force).unwrap_or_else(|e| {
+        log::info!("durée de vie : {e:#}");
+        false
+    });
     let cfg = state.provider_config();
     let disabled = state.disabled_sources();
     let sources = db::sources_of_game(&state.conn(), game_id)?;
-    let mut changed = false;
+    let changed = false;
     let mut first_error: Option<anyhow::Error> = None;
 
+    let mut changed = changed || ttb_changed;
     for s in &sources {
         if disabled.contains(s.source.as_str()) {
             continue;
@@ -192,3 +198,22 @@ pub fn refresh_game(state: &AppState, game_id: &str, force: bool) -> Result<bool
         _ => Ok(changed),
     }
 }
+
+/// Durée de vie d'un jeu via IGDB (si les identifiants Twitch sont enregistrés).
+pub fn refresh_time_to_beat(state: &AppState, game_id: &str, force: bool) -> Result<bool> {
+    if !crate::igdb::configured() {
+        return Ok(false);
+    }
+    let (title, checked): (String, Option<String>) = state.conn().query_row("SELECT title, time_to_beat_checked FROM games WHERE id = ?1", params![game_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let recent = checked.as_deref().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map_or(false, |t| chrono::Utc::now().signed_duration_since(t) < chrono::Duration::days(30));
+    if recent && !force {
+        return Ok(false);
+    }
+    let found = crate::igdb::fetch(&title)?;
+    state.conn().execute(
+        "UPDATE games SET time_to_beat_main = COALESCE(?2, time_to_beat_main), time_to_beat_full = COALESCE(?3, time_to_beat_full), time_to_beat_checked = ?4 WHERE id = ?1",
+        params![game_id, found.and_then(|f| f.main), found.and_then(|f| f.full), crate::models::now_iso()],
+    )?;
+    Ok(found.is_some())
+}
+

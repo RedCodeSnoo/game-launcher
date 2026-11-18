@@ -1,5 +1,5 @@
 // Paramètres → Apparence : galerie des thèmes (aperçu en direct au survol), options, éditeur, import / export.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Download, ImagePlus, Palette as PaletteIcon, Trash2, Upload, X } from "lucide-react";
 import { api, pickFile, pickSavePath } from "../api";
 import { errorMessage } from "../i18n";
@@ -225,6 +225,17 @@ export function Appearance() {
   const toasts = useToasts();
   const { themes, custom, chosenId, active, setTheme, preview, deleteCustom, saveCustom, options, setOption, reduced } = useTheme();
   const [editing, setEditing] = useState<Theme | null>(null);
+  // Aperçu au survol : seulement si la souris s'arrête sur une vignette (pas à chaque vignette traversée).
+  const hoverTimer = useRef(0);
+  const schedulePreview = (t: Theme) => {
+    window.clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => preview(t), 250);
+  };
+  const stopPreview = () => {
+    window.clearTimeout(hoverTimer.current);
+    preview(null);
+  };
+  useEffect(() => () => window.clearTimeout(hoverTimer.current), []);
   const systemReduced = reduced && !options.reduceMotion;
 
   const exportTheme = async (t: Theme) => {
@@ -256,14 +267,18 @@ export function Appearance() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" onMouseLeave={() => preview(null)}>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" onMouseLeave={stopPreview}>
         {themes.map((t) => (
           <div key={t.id} className="group relative">
             <button
-              onClick={() => setTheme(t.id)}
-              onMouseEnter={() => preview(t)}
-              onFocus={() => preview(t)}
-              onBlur={() => preview(null)}
+              onClick={() => {
+                window.clearTimeout(hoverTimer.current);
+                setTheme(t.id);
+              }}
+              onMouseEnter={() => schedulePreview(t)}
+              onMouseLeave={() => window.clearTimeout(hoverTimer.current)}
+              onFocus={() => schedulePreview(t)}
+              onBlur={stopPreview}
               aria-pressed={chosenId === t.id}
               aria-label={`Thème ${t.name}`}
               title={t.description}

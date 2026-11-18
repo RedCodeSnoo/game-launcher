@@ -158,6 +158,17 @@ pub fn install_game(state: State<'_, Shared>, game_id: String) -> AppResult<()> 
     Err(AppError::new("INSTALL_UNSUPPORTED", ""))
 }
 
+/// Ouvre un lien web dans le navigateur par défaut (https uniquement : boutique Epic, actualités).
+#[tauri::command(async)]
+pub fn open_url(url: String) -> AppResult<()> {
+    let ok = url.starts_with("https://") && url.len() < 2048 && !url.chars().any(|c| c.is_whitespace() || c == '"');
+    if !ok {
+        return Err(AppError::new("BAD_URL", ""));
+    }
+    crate::launch::shell_open(&url, None, None)?;
+    Ok(())
+}
+
 /// Ouvre un dossier dans l'Explorateur.
 #[tauri::command(async)]
 pub fn open_path(path: String) -> AppResult<()> {
@@ -575,6 +586,7 @@ pub struct Accounts {
     /// SteamID du compte connecté sur ce PC, pour pré-remplir le formulaire.
     pub local_steam_id: Option<String>,
     pub sgdb_key_set: bool,
+    pub igdb_set: bool,
 }
 
 #[tauri::command(async)]
@@ -584,6 +596,7 @@ pub fn get_accounts(state: State<'_, Shared>) -> Accounts {
         steam_key_set: secrets::is_set(secrets::STEAM_API_KEY),
         local_steam_id: providers::steam::local_steam_id(),
         sgdb_key_set: secrets::is_set(secrets::STEAMGRIDDB_API_KEY),
+        igdb_set: crate::igdb::configured(),
     }
 }
 
@@ -802,6 +815,13 @@ const UI_SETTINGS: &[&str] = &[
     "streak_reminder_hour",
     "cover_size",
     "session_journal",
+    "epic_free_notify",
+    "show_news",
+    "discord_rpc",
+    "discord_client_id",
+    "screenshot_folders",
+    "sync_folder",
+    "sync_auto",
 ];
 
 #[tauri::command(async)]
@@ -1039,6 +1059,146 @@ pub fn write_text_file(path: String, contents: String) -> AppResult<()> {
     }
     std::fs::write(&path, contents).map_err(|e| AppError::new("IO", e.to_string()))?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Intégrations (V1.5)
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FreeGames {
+    pub games: Vec<crate::integrations::FreeGame>,
+    pub checked_at: Option<String>,
+}
+
+/// Jeux gratuits Epic de la semaine : liste en cache, rafraîchie si elle date de plus de 3 h (ou sur demande).
+#[tauri::command(async)]
+pub fn get_free_games(state: State<'_, Shared>, refresh: bool) -> AppResult<FreeGames> {
+    let (games, checked_at) = crate::integrations::cached_free_games(&state.conn());
+    let stale = checked_at.as_deref().and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok()).map_or(true, |t| chrono::Utc::now().signed_duration_since(t) > chrono::Duration::hours(3));
+    if refresh || stale {
+        if let Ok((fresh, _)) = crate::integrations::refresh_free_games(&state.db) {
+            let checked_at = crate::db::get_setting(&state.conn(), "epic_free_checked");
+            return Ok(FreeGames { games: fresh, checked_at });
+        }
+    }
+    Ok(FreeGames { games, checked_at })
+}
+
+/// Actualités d'un jeu Steam de la bibliothèque.
+#[tauri::command(async)]
+pub fn get_game_news(state: State<'_, Shared>, game_id: String) -> AppResult<Vec<crate::integrations::NewsItem>> {
+    let sources = db::sources_of_game(&state.conn(), &game_id)?;
+    let Some(appid) = sources.iter().find(|s| s.source == SourceId::Steam).map(|s| s.external_id.clone()) else { return Ok(Vec::new()) };
+    let mut items = crate::integrations::steam_news(&appid, 8).unwrap_or_default();
+    for n in &mut items {
+        n.game_id = Some(game_id.clone());
+    }
+    Ok(items)
+}
+
+/// Fil d'actualités de l'accueil : jeux Steam joués récemment (ou installés), 3 actualités chacun au plus.
+#[tauri::command(async)]
+pub fn get_news_feed(state: State<'_, Shared>) -> AppResult<Vec<crate::integrations::NewsItem>> {
+    let mut games: Vec<library::GameView> = library::list_visible_games(&state.conn(), &state.disabled_sources())?
+        .into_iter()
+        .filter(|g| !g.hidden && g.sources.iter().any(|s| s.source.source == SourceId::Steam && (s.source.installed || g.last_played.is_some())))
+        .collect();
+    games.sort_by(|a, b| b.last_played.cmp(&a.last_played));
+    let mut out = Vec::new();
+    for g in games.iter().take(8) {
+        let Some(s) = g.sources.iter().find(|s| s.source.source == SourceId::Steam) else { continue };
+        match crate::integrations::steam_news(&s.source.external_id, 3) {
+            Ok(items) => out.extend(items.into_iter().map(|mut n| {
+                n.game_id = Some(g.id.clone());
+                n.game_title = Some(g.title.clone());
+                n
+            })),
+            Err(e) if crate::http::is_offline(&e) => break,
+            Err(_) => {}
+        }
+    }
+    out.sort_by(|a, b| b.date.cmp(&a.date));
+    out.truncate(12);
+    Ok(out)
+}
+
+/// Captures d'écran d'un jeu ; les dossiers trouvés sont autorisés pour l'affichage (lecture seule).
+#[tauri::command(async)]
+pub fn get_screenshots(app: AppHandle, state: State<'_, Shared>, game_id: String) -> AppResult<Vec<crate::screenshots::Screenshot>> {
+    let (title, sources, custom) = {
+        let conn = state.conn();
+        let title: String = conn.query_row("SELECT title FROM games WHERE id = ?1", params![game_id], |r| r.get(0))?;
+        let sources: Vec<(SourceId, String)> = db::sources_of_game(&conn, &game_id)?.into_iter().map(|s| (s.source, s.external_id)).collect();
+        let custom: Vec<std::path::PathBuf> = db::get_setting(&conn, "screenshot_folders").unwrap_or_default().lines().map(str::trim).filter(|l| !l.is_empty()).map(std::path::PathBuf::from).collect();
+        (title, sources, custom)
+    };
+    let steam_root = providers::steam::steam_path();
+    let (shots, dirs) = crate::screenshots::find(&title, &sources, steam_root.as_deref(), crate::screenshots::videos_dir().as_deref(), &custom);
+    for d in dirs {
+        let _ = app.asset_protocol_scope().allow_directory(&d, false);
+    }
+    Ok(shots)
+}
+
+/// Identifiants Twitch pour IGDB (durée de vie des jeux), vérifiés puis rangés dans le coffre Windows.
+#[tauri::command(async)]
+pub fn set_igdb_credentials(client_id: Option<String>, client_secret: Option<String>) -> AppResult<()> {
+    match (client_id.as_deref().map(str::trim).filter(|s| !s.is_empty()), client_secret.as_deref().map(str::trim).filter(|s| !s.is_empty())) {
+        (Some(id), Some(secret)) => {
+            crate::igdb::check_credentials(id, secret)?;
+            secrets::set(crate::igdb::CLIENT_ID, id)?;
+            secrets::set(crate::igdb::CLIENT_SECRET, secret)?;
+        }
+        _ => {
+            secrets::delete(crate::igdb::CLIENT_ID)?;
+            secrets::delete(crate::igdb::CLIENT_SECRET)?;
+        }
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncInfo {
+    pub folder: Option<String>,
+    pub auto: bool,
+    pub last: Option<String>,
+    pub remote: Option<crate::cloudsync::Manifest>,
+}
+
+#[tauri::command(async)]
+pub fn get_sync_info(state: State<'_, Shared>) -> SyncInfo {
+    let conn = state.conn();
+    let folder = db::get_setting(&conn, "sync_folder").filter(|f| !f.is_empty());
+    SyncInfo {
+        remote: folder.as_deref().and_then(|f| crate::cloudsync::read_manifest(Path::new(f))),
+        auto: db::get_setting(&conn, "sync_auto").as_deref() == Some("1"),
+        last: db::get_setting(&conn, "sync_last"),
+        folder,
+    }
+}
+
+/// Enregistre le dossier choisi et y écrit une copie à jour de la bibliothèque.
+#[tauri::command(async)]
+pub fn sync_now(state: State<'_, Shared>, folder: String) -> AppResult<crate::cloudsync::Manifest> {
+    if !Path::new(&folder).is_dir() {
+        return Err(AppError::new("FOLDER_NOT_FOUND", folder));
+    }
+    let conn = state.conn();
+    db::set_setting(&conn, "sync_folder", &folder)?;
+    Ok(crate::cloudsync::export(&conn, Path::new(&folder))?)
+}
+
+#[tauri::command(async)]
+pub fn restore_from_folder(app: AppHandle, state: State<'_, Shared>, folder: String) -> AppResult<crate::cloudsync::Manifest> {
+    if !state.tracker.running_games().is_empty() {
+        return Err(AppError::new("BACKUP_WHILE_PLAYING", ""));
+    }
+    let manifest = crate::cloudsync::restore(&mut state.conn(), Path::new(&folder))?;
+    notify_library(&app);
+    Ok(manifest)
 }
 
 #[cfg(test)]

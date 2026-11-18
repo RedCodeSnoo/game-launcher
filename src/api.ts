@@ -1,7 +1,7 @@
 // Passerelle vers le backend. Hors Tauri (navigateur, `npm run dev`), un backend simulé prend le relais.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Accounts, Achievement, ActivityGrid, Candidate, Collection, Dashboard, DayDetail, Game, GamePatch, MergeSuggestion, Period, ScanState, Session, SourceId, SourcePatch, SourceStatus, Stats, StatsFilter, StoreMatch, Streaks, UpdateInfo, WatchedFolder } from "./types";
+import type { Accounts, Achievement, ActivityGrid, Candidate, Collection, Dashboard, DayDetail, FreeGame, Game, GamePatch, MergeSuggestion, NewsItem, Period, ScanState, Screenshot, Session, SourceId, SourcePatch, SourceStatus, Stats, StatsFilter, StoreMatch, Streaks, SyncInfo, SyncManifest, UpdateInfo, WatchedFolder } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -77,6 +77,15 @@ export const api = {
   getActivityDay: (day: string, gameId?: string) => call<DayDetail>("get_activity_day", { day, gameId }),
   getStreaks: () => call<Streaks>("get_streaks"),
   setSessionNote: (sessionId: string, note: string) => call<void>("set_session_note", { sessionId, note }),
+  openUrl: (url: string) => call<void>("open_url", { url }),
+  getFreeGames: (refresh = false) => call<{ games: FreeGame[]; checkedAt: string | null }>("get_free_games", { refresh }),
+  getGameNews: (gameId: string) => call<NewsItem[]>("get_game_news", { gameId }),
+  getNewsFeed: () => call<NewsItem[]>("get_news_feed"),
+  getScreenshots: (gameId: string) => call<Screenshot[]>("get_screenshots", { gameId }),
+  setIgdbCredentials: (clientId?: string, clientSecret?: string) => call<void>("set_igdb_credentials", { clientId, clientSecret }),
+  getSyncInfo: () => call<SyncInfo>("get_sync_info"),
+  syncNow: (folder: string) => call<SyncManifest>("sync_now", { folder }),
+  restoreFromFolder: (folder: string) => call<SyncManifest>("restore_from_folder", { folder }),
   getSources: () => call<SourceStatus[]>("get_sources"),
   setSourceEnabled: (source: SourceId, enabled: boolean) => call<void>("set_source_enabled", { source, enabled }),
   getSettings: () => call<Record<string, string>>("get_settings"),
