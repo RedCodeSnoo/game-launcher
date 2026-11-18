@@ -373,6 +373,73 @@ main {
   transition-duration: 0ms !important;
 }
 
+/* Barre de titre (fenêtre sans cadre Windows). */
+.titlebar-btn {
+  display: flex;
+  width: 46px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition:
+    background-color 120ms,
+    color 120ms;
+}
+.titlebar-btn:hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  color: var(--fg);
+}
+.titlebar-close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+/* Glisser-déposer à la souris (voir src/lib/drag.ts). */
+.drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 16rem;
+  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--accent);
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--scrim) 55%, transparent);
+  opacity: 0.95;
+}
+.drag-ghost img {
+  width: 2rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 0.3rem;
+}
+.drag-ghost span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+body.dragging,
+body.dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+.drop-target {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+[data-drop].drop-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 /* Récap de l'année et Big Picture. */
 @keyframes recap-in {
   from {

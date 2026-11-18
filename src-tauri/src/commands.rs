@@ -848,6 +848,8 @@ const UI_SETTINGS: &[&str] = &[
     "profile_name",
     "profile_avatar",
     "profile_favorite",
+    "profile_photo",
+    "profile_top10",
     "bigpicture_sounds",
 ];
 

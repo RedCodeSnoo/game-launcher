@@ -1,7 +1,8 @@
 // Backlog (O-02) : un tableau par statut ; glisser-déposer une carte change son statut.
 import { useMemo, useState } from "react";
+import { startDrag, useDragging, useDrop } from "../lib/drag";
 import { Plus, Search } from "lucide-react";
-import { api } from "../api";
+import { api, imageUrl } from "../api";
 import { errorMessage } from "../i18n";
 import { formatMinutes, formatRelative } from "../lib/format";
 import { searchGames, STATUSES } from "../lib/organize";
@@ -9,9 +10,19 @@ import type { Game, GameStatus } from "../types";
 import { Cover } from "./Cover";
 import { useToasts } from "./Toasts";
 
+/** Colonne du backlog : zone de dépôt, mise en évidence pendant un glissement. */
+function Column({ label, onDrop, children }: { label: string; onDrop: (gameId: string) => void; children: React.ReactNode }) {
+  const ref = useDrop<HTMLElement>((p) => onDrop(p.gameId));
+  const dragging = useDragging();
+  return (
+    <section ref={ref} data-drop="" className={`backlog-col flex min-h-0 flex-col rounded-xl border bg-panel transition ${dragging ? "border-dashed border-accent/50" : "border-line"}`} aria-label={label}>
+      {children}
+    </section>
+  );
+}
+
 export function Backlog({ games, onOpen }: { games: Game[]; onOpen: (id: string) => void }) {
   const toasts = useToasts();
-  const [over, setOver] = useState<GameStatus | null>(null);
   const [query, setQuery] = useState("");
   const visible = useMemo(() => games.filter((g) => !g.hidden), [games]);
   const byStatus = useMemo(() => {
@@ -72,23 +83,7 @@ export function Backlog({ games, onOpen }: { games: Game[]; onOpen: (id: string)
         {STATUSES.map((s) => {
           const list = byStatus.get(s.id) ?? [];
           return (
-            <section
-              key={s.id}
-              onDragOver={(e) => {
-                if (e.dataTransfer.types.includes("application/x-game-id")) {
-                  e.preventDefault();
-                  setOver(s.id);
-                }
-              }}
-              onDragLeave={() => setOver((o) => (o === s.id ? null : o))}
-              onDrop={(e) => {
-                const id = e.dataTransfer.getData("application/x-game-id");
-                setOver(null);
-                if (id) void move(id, s.id);
-              }}
-              className={`flex min-h-0 flex-col rounded-xl border bg-panel transition ${over === s.id ? "border-accent ring-2 ring-accent/40" : "border-line"}`}
-              aria-label={`${s.label} : ${list.length} jeu(x)`}
-            >
+            <Column key={s.id} label={`${s.label} : ${list.length} jeu(x)`} onDrop={(id) => list.some((g) => g.id === id) || void move(id, s.id)}>
               <h2 className="flex items-center gap-2 border-b border-line px-3 py-2.5 text-sm font-semibold">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
                 {s.label}
@@ -98,11 +93,7 @@ export function Backlog({ games, onOpen }: { games: Game[]; onOpen: (id: string)
                 {list.map((g) => (
                   <li key={g.id}>
                     <button
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData("application/x-game-id", g.id);
-                        e.dataTransfer.effectAllowed = "move";
-                      }}
+                      onPointerDown={(e) => startDrag(e, { gameId: g.id, title: g.title, cover: imageUrl(g.coverPath) })}
                       onClick={() => onOpen(g.id)}
                       className="flex w-full cursor-grab items-center gap-2.5 rounded-lg border border-line bg-panel2/70 p-2 text-left transition hover:border-accent active:cursor-grabbing"
                     >
@@ -120,7 +111,7 @@ export function Backlog({ games, onOpen }: { games: Game[]; onOpen: (id: string)
                 ))}
                 {list.length === 0 && <li className="px-2 py-6 text-center text-xs text-muted">Déposez un jeu ici</li>}
               </ul>
-            </section>
+            </Column>
           );
         })}
       </div>

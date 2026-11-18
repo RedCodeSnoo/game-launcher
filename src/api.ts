@@ -126,6 +126,44 @@ export async function setFullscreen(on: boolean): Promise<void> {
   await getCurrentWindow().setFullscreen(on);
 }
 
+/** Boutons de la barre de titre (fenêtre sans cadre Windows). */
+export const windowControls = {
+  async minimize() {
+    if (!isTauri) return;
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().minimize();
+  },
+  async toggleMaximize() {
+    if (!isTauri) return;
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().toggleMaximize();
+  },
+  /** Comme la croix Windows : l'application continue dans la zone de notification (ou quitte, selon le réglage). */
+  async close() {
+    if (!isTauri) return;
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close();
+  },
+  /** Suit l'état agrandi / restauré ; renvoie la fonction de désabonnement. */
+  onMaximizedChange(cb: (maximized: boolean) => void): () => void {
+    if (!isTauri) return () => {};
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+      const w = getCurrentWindow();
+      const sync = () => void w.isMaximized().then(cb).catch(() => {});
+      sync();
+      const un = await w.onResized(sync);
+      if (cancelled) un();
+      else stop = un;
+    });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  },
+};
+
 export async function pickFile(title: string, extensions: string[], defaultPath?: string): Promise<string | null> {
   if (!isTauri) return window.prompt(`${title} (chemin)`) || null;
   const { open } = await import("@tauri-apps/plugin-dialog");

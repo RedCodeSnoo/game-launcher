@@ -22,7 +22,7 @@ Ensuite, l'application se met à jour toute seule (voir plus bas).
 - **Statistiques et séries** 🔥 : série de jours joués (avec jokers et rappel du soir), grille d'activité façon GitHub, temps par semaine et par mois, par launcher, par genre, top jeux, carte des habitudes, records, succès Steam (avec rareté) et badges.
 - **Jaquettes et fiches** automatiques (cache Steam, catalogue Epic, SteamGridDB en option).
 - **Mode Big Picture** 📺 : plein écran pour la télé, tout à la manette (Xbox, PlayStation), `F11` ou Vue + Menu pour entrer et sortir.
-- **Récap de l'année** ✨ (à partir du 1er décembre) : temps de jeu, top 5, meilleure série, jour record, launcher préféré et profil de joueur, exportable en image ; page **Profil** avec avatar, pseudo, jeu favori et badges.
+- **Récap de l'année** ✨ (à partir du 1er décembre) : temps de jeu, top 5, meilleure série, jour record, launcher préféré et profil de joueur, exportable en image ; page **Profil** avec photo recadrable, pseudo, top 10 de vos jeux préférés (à classer par glisser-déposer) et badges, exportable en image.
 - **Intégrations** : jeux gratuits Epic de la semaine, actualités Steam, galerie de captures d'écran (Steam, Xbox Game Bar, NVIDIA), Discord Rich Presence, durée de vie des jeux (IGDB, facultatif), sauvegarde et synchronisation vers OneDrive, Google Drive ou une clé USB.
 - **Zone de notification** : GameLauncher reste actif fenêtre fermée, menu des jeux récents et du jeu en cours, démarrage avec Windows.
 - Favoris, collections, filtres et tris, thème sombre ou clair, sauvegarde et restauration.

@@ -2,6 +2,19 @@
 
 Chaque section `## [X.Y.Z]` devient le texte de la Release GitHub et de la bannière de mise à jour dans l'application.
 
+## [2.1.0] – 2026-11-18
+
+**Profil, glisser-déposer et nouvelle fenêtre** ✨
+
+- **Le glisser-déposer marche enfin dans l'application** : déplacez une carte d'une colonne à l'autre du Backlog, ou une jaquette vers « Backlog » ou une collection de la barre latérale. Un aperçu de la jaquette suit la souris, la zone visée s'éclaire, `Échap` annule.
+- **Profil repensé** :
+  - **photo de profil** à partir de votre propre image, recadrable (glisser pour placer, zoom), ou un emoji ;
+  - **mes 10 jeux préférés** : dix emplacements vides avec un « + » pour choisir parmi vos jeux, puis glissez les jaquettes pour les classer (podium mis en avant) ;
+  - **export en image** soigné : photo, pseudo, profil de joueur, statistiques, top 10 et badges, aux couleurs de votre thème, à montrer à n'importe qui.
+  - Les « jeux les plus joués » quittent le profil (ils sont dans les Statistiques).
+- **Nouvelle barre de titre** aux couleurs du thème, à la place du cadre Windows : réduire, agrandir, fermer, déplacer, double-clic pour agrandir, ancrage Windows conservé.
+- Activité : l'infobulle des cases du haut n'est plus coupée (elle passe sous la case s'il n'y a pas de place au-dessus).
+
 ## [2.0.1] – 2026-11-18
 
 **Correctif important** 🚑

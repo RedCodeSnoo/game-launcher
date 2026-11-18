@@ -5,6 +5,7 @@ import { Download, HardDrive, Heart, Play, Square } from "lucide-react";
 import { imageUrl } from "../api";
 import { Cover, placeholderGradient, SourceBadge } from "./Cover";
 import { t } from "../i18n";
+import { startDrag } from "../lib/drag";
 import { formatMinutes, formatRelative, hueOf, percent } from "../lib/format";
 import type { Game } from "../types";
 
@@ -20,10 +21,8 @@ interface Props {
 }
 
 /** Une jaquette se glisse vers une collection de la barre latérale ou une colonne du backlog (O-07). */
-export function dragGame(e: React.DragEvent, game: Game) {
-  e.dataTransfer.setData("application/x-game-id", game.id);
-  e.dataTransfer.setData("text/plain", game.title);
-  e.dataTransfer.effectAllowed = "copyMove";
+export function dragGame(e: React.PointerEvent, game: Game) {
+  startDrag(e, { gameId: game.id, title: game.title, cover: imageUrl(game.coverPath) });
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -52,8 +51,7 @@ const Card = memo(function Card({ game, isRunning, onOpen, onPlay, onStop }: { g
   return (
     <div className="group relative flex min-w-0 flex-col">
       <button
-        draggable
-        onDragStart={(e) => dragGame(e, game)}
+        onPointerDown={(e) => dragGame(e, game)}
         onClick={() => onOpen(game)}
         onDoubleClick={() => onPlay(game)}
         title={`${game.title} – ${stateLabel(game, isRunning)}`}
@@ -242,8 +240,7 @@ export function GameBanners({ games, running, onOpen, onPlay, onStop }: Props) {
           return (
             <div key={game.id} className="group absolute left-0 w-full" style={{ top: row.start, height: BANNER_HEIGHT }}>
               <button
-                draggable
-                onDragStart={(e) => dragGame(e, game)}
+                onPointerDown={(e) => dragGame(e, game)}
                 onClick={() => onOpen(game)}
                 onDoubleClick={() => onPlay(game)}
                 className={`game-card relative flex h-full w-full items-end overflow-hidden rounded-lg text-left ring-1 ring-line transition group-hover:ring-accent ${unavailable ? "grayscale" : ""} ${!game.installed ? "opacity-60" : ""}`}

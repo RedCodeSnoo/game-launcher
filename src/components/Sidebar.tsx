@@ -1,6 +1,7 @@
 // Barre latérale : sections de la bibliothèque, sources, collections, pages.
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { BarChart3, Clock, Dices, EyeOff, FolderHeart, Gamepad2, HardDriveDownload, Heart, Home, Kanban, Library, Search, Settings as SettingsIcon, Sparkles, Tv, UserRound } from "lucide-react";
+import { useDragging, useDrop } from "../lib/drag";
 import { api } from "../api";
 import { AUTO_COLLECTIONS, inAutoCollection } from "../lib/organize";
 import { useToasts } from "./Toasts";
@@ -27,35 +28,18 @@ interface Props {
 const SOURCE_ORDER: SourceId[] = ["steam", "epic", "gog", "battlenet", "riot", "ubisoft", "ea", "xbox", "local"];
 
 export function NavItem({ active, onClick, icon, label, count, onDropGame }: { active: boolean; onClick: () => void; icon: ReactNode; label: string; count?: number; onDropGame?: (gameId: string) => void }) {
-  const [over, setOver] = useState(false);
+  const ref = useDrop<HTMLButtonElement>(onDropGame ? (p) => onDropGame(p.gameId) : undefined);
+  const dragging = useDragging();
+  const target = !!onDropGame && !!dragging;
   return (
     <button
+      ref={ref}
+      data-drop={onDropGame ? "" : undefined}
       onClick={onClick}
-      onDragOver={
-        onDropGame
-          ? (e) => {
-              if (e.dataTransfer.types.includes("application/x-game-id")) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-                setOver(true);
-              }
-            }
-          : undefined
-      }
-      onDragLeave={onDropGame ? () => setOver(false) : undefined}
-      onDrop={
-        onDropGame
-          ? (e) => {
-              setOver(false);
-              const id = e.dataTransfer.getData("application/x-game-id");
-              if (id) onDropGame(id);
-            }
-          : undefined
-      }
       aria-current={active ? "page" : undefined}
       aria-label={count !== undefined ? `${label} (${count})` : label}
       className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition ${
-        over ? "bg-accent/30 text-fg ring-2 ring-accent" : active ? "bg-accent/20 font-medium text-fg" : "text-muted hover:bg-panel2 hover:text-fg"
+        target ? "drop-target text-fg ring-1 ring-accent/50" : active ? "bg-accent/20 font-medium text-fg" : "text-muted hover:bg-panel2 hover:text-fg"
       }`}
     >
       <span className="flex w-4 shrink-0 justify-center">{icon}</span>

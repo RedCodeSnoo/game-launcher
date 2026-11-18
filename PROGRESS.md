@@ -197,3 +197,11 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Blocage de la base par le fil d'actualités (bibliothèque vide, images figées, fenêtre figée à la fermeture) corrigé ; garde contre tout double verrou ; croix hors du fil principal.
 - Images du cache ramenées à leur taille d'affichage, cache existant allégé en arrière-plan ; bibliothèque gardée en mémoire entre les onglets.
 - Tests : 3 tests du verrou (libération, double verrou détecté sans blocage, fil d'actualités), 3 tests des images (redimensionnement, transparence des logos, passe sur le cache). Total : 146 tests Rust (+6 ignorés), 42 tests de l'interface.
+
+## 2.1.0 – Profil, glisser-déposer, barre de titre (`v2.1.0`)
+
+- Glisser-déposer maison (Backlog, collections, top 10), le glisser-déposer HTML5 ne fonctionnant pas dans la fenêtre Tauri sous Windows.
+- Profil : photo recadrable, top 10 réordonnable avec emplacements vides, export en image ; « jeux les plus joués » retirés.
+- Barre de titre aux couleurs du thème ; infobulle de l'activité qui n'est plus coupée.
+- Tests : glisser-déposer (seuil, réordonnancement) et top 10 (lecture, placer, déplacer, retirer). Total : 146 tests Rust (+6 ignorés), 46 tests de l'interface.
+- Vérifié : glisser réel à la souris (Backlog, barre latérale, top 10), éditeur de photo, image exportée, infobulle, dans Nuit à Kyoto ; barre de titre dans la fenêtre native.

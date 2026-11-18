@@ -9,6 +9,7 @@ import { GameDetail } from "./components/GameDetail";
 import { Backlog } from "./components/Backlog";
 import { CommandPalette } from "./components/CommandPalette";
 import { Home } from "./components/Home";
+import { TitleBar } from "./components/TitleBar";
 import { BigPicture } from "./components/BigPicture";
 import { ProfilePage } from "./components/Profile";
 import { RecapView } from "./components/Recap";
@@ -398,7 +399,12 @@ export default function App() {
     <ToastProvider>
       <ThemeProvider>
         <Backdrop />
-        <Shell />
+        <div className="flex h-full flex-col">
+          <TitleBar />
+          <div className="min-h-0 flex-1">
+            <Shell />
+          </div>
+        </div>
       </ThemeProvider>
     </ToastProvider>
   );

@@ -1,5 +1,6 @@
 // Grille d'activité façon GitHub (S2-02 à S2-05) : 53 semaines × 7 jours, 5 niveaux dans la couleur d'accent.
 // Survol : date, temps et jeux du jour (avec jaquettes). Clic : sessions du jour.
+import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, on } from "../api";
 import { formatDateTime, formatSeconds } from "../lib/format";
@@ -122,7 +123,14 @@ function DaySessions({ detail, onClose }: { detail: DayDetail; onClose: () => vo
 export function ActivityGrid({ gameId, showYearPicker = true }: { gameId?: string; showYearPicker?: boolean }) {
   const [year, setYear] = useState<number | undefined>(undefined);
   const [grid, setGrid] = useState<Grid | null>(null);
-  const [hover, setHover] = useState<{ cell: Cell; x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{ cell: Cell; x: number; y: number; bottom: number } | null>(null);
+  // L'infobulle est placée par rapport à la fenêtre : on la retire dès que la page défile.
+  useEffect(() => {
+    if (!hover) return;
+    const clear = () => setHover(null);
+    window.addEventListener("scroll", clear, true);
+    return () => window.removeEventListener("scroll", clear, true);
+  }, [hover]);
   const [detail, setDetail] = useState<DayDetail | null>(null);
   const [open, setOpen] = useState<DayDetail | null>(null);
   const cache = useRef(new Map<string, DayDetail>());
@@ -213,7 +221,7 @@ export function ActivityGrid({ gameId, showYearPicker = true }: { gameId?: strin
               onMouseEnter={(e) => {
                 const r = box.current?.getBoundingClientRect();
                 const t = (e.target as SVGRectElement).getBoundingClientRect();
-                if (r) setHover({ cell: c, x: t.left - r.left + t.width / 2, y: t.top - r.top });
+                if (r) setHover({ cell: c, x: t.left + t.width / 2, y: t.top, bottom: t.bottom });
               }}
               onClick={() => {
                 if (c.future) return;
@@ -222,10 +230,11 @@ export function ActivityGrid({ gameId, showYearPicker = true }: { gameId?: strin
             />
           ))}
         </svg>
-        {hover && !hover.cell.future && (
+        {/* Infobulle hors de la zone qui défile (sinon coupée en haut), retournée sous la case faute de place au-dessus. */}
+        {hover && !hover.cell.future && createPortal(
           <div
-            className="pointer-events-none absolute z-20 w-64 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-panel p-3 text-xs shadow-xl"
-            style={{ left: Math.min(Math.max(hover.x, 128), (box.current?.clientWidth ?? 600) - 128), top: hover.y - 6 }}
+            className={`pointer-events-none fixed z-[70] w-64 -translate-x-1/2 rounded-lg border border-line bg-panel p-3 text-xs shadow-xl ${hover.y < 200 ? "" : "-translate-y-full"}`}
+            style={{ left: Math.min(Math.max(hover.x, 140), window.innerWidth - 140), top: hover.y < 200 ? hover.bottom + 6 : hover.y - 6 }}
           >
             <p className="font-semibold capitalize">{longDate(hover.cell.day)}</p>
             <p className="text-muted">{hover.cell.seconds > 0 ? formatSeconds(hover.cell.seconds) : "Pas de partie"}</p>
@@ -242,7 +251,8 @@ export function ActivityGrid({ gameId, showYearPicker = true }: { gameId?: strin
                 ))}
               </ul>
             )}
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
       <div className="flex items-center justify-end gap-1.5 text-[11px] text-muted">
