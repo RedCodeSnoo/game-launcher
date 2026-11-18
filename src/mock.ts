@@ -337,6 +337,8 @@ Object.assign(mockHandlers, {
   get_activity: (a: Args) => mockActivity(a.year as number | undefined, a.gameId as string | undefined),
   get_activity_day: (a: Args) => mockDay(String(a.day), a.gameId as string | undefined),
   get_streaks: () => mockStreaks(),
+  get_recap: (a: Args) => mockRecap(Number(a.year)),
+  save_png: () => undefined,
   get_sources: () =>
     (["steam", "local", "epic", "riot", "battlenet", "gog", "ubisoft", "ea", "xbox"] as SourceId[]).map((source) => ({
       source,
@@ -547,6 +549,54 @@ function mockDashboard(period: Period, filter: StatsFilter) {
       { id: "explorer", name: "Touche-à-tout", description: "Jouer sur 5 launchers différents.", icon: "🧭", earned: true },
       { id: "completionist", name: "Complétionniste", description: "Tous les succès d'un jeu.", icon: "🏆", earned: withAch.some((g) => g.achUnlocked === g.achTotal) },
     ],
+  };
+}
+
+function mockRecap(year: number) {
+  const perGame = new Map<string, number>();
+  const monthly = Array(12).fill(0) as number[];
+  let total = 0;
+  let days = 0;
+  let record: [string, number] | null = null;
+  for (const [day, list] of mockHistory) {
+    if (!day.startsWith(String(year))) continue;
+    days++;
+    const sum = list.reduce((n, [, s]) => n + s, 0);
+    if (!record || sum > record[1]) record = [day, sum];
+    total += sum;
+    monthly[Number(day.slice(5, 7)) - 1] += sum;
+    for (const [id, s] of list) perGame.set(id, (perGame.get(id) ?? 0) + s);
+  }
+  const top = [...perGame.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, seconds]) => {
+    const g = mockState.games.find((x) => x.id === id)!;
+    return { gameId: id, title: g.title, coverPath: g.coverPath, heroPath: g.heroPath, seconds };
+  });
+  const st = mockStreaks();
+  return {
+    year,
+    available: true,
+    totalSeconds: total,
+    daysPlayed: days,
+    sessions: Math.round(days * 1.6),
+    gamesPlayed: perGame.size,
+    topGames: top,
+    bestStreak: st.best,
+    bestStreakStart: st.bestStart,
+    bestStreakEnd: st.bestEnd,
+    recordDay: record,
+    recordDayGames: top.slice(0, 2).map((g) => g.title),
+    favoriteSource: ["steam", Math.round(total * 0.46)],
+    sourceShare: 0.46,
+    monthly,
+    hourly: Array.from({ length: 24 }, (_, h) => Math.round(Math.max(0, Math.sin(((h - 14) / 24) * Math.PI * 2)) * 90000)),
+    longestSession: top[0] ? [top[0].title, 19800] : null,
+    nightShare: 0.34,
+    weekendShare: 0.41,
+    badges: [
+      { id: "night-owl", name: "Noctambule", description: "Jouer après 3 h du matin.", icon: "🦉", earned: true },
+      { id: "explorer", name: "Touche-à-tout", description: "Jouer sur 5 launchers différents.", icon: "🧭", earned: true },
+    ],
+    profile: { id: "night-owl", title: "Noctambule", emoji: "🦉", description: "34 % de votre temps de jeu après 22 h.", traits: ["Touche-à-tout", "Fidèle"] },
   };
 }
 

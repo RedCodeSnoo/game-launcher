@@ -302,3 +302,23 @@ Chaque thème est capturé sur la bibliothèque, la fiche jeu, les statistiques 
 
 Cause : chaque survol d'une vignette appliquait le thème avec un fondu enchaîné (`startViewTransition`) sur toute la fenêtre, puis un second en sortant ; traverser la galerie enchaînait les fondus. L'accent du thème dynamique déclenchait aussi un fondu à l'ouverture d'une fiche. Correction : l'aperçu ne s'applique qu'après 250 ms d'arrêt sur une vignette, sans fondu ; en sortant de la galerie, retour immédiat sans fondu ; le fondu est réservé à un changement d'identifiant de thème qui ne vient pas d'un aperçu. Vérifié en comptant les fondus : 0 pour un survol rapide de 6 vignettes, 0 pour l'aperçu puis le clic, 1 pour un changement direct.
 
+## D53 – Big Picture (V2.0)
+
+- Composant plein écran au-dessus de l'application (pas une seconde fenêtre) : il reprend le fond animé du thème déjà en place et ses règles de pause. La fenêtre passe en plein écran à l'entrée et revient à la normale à la sortie (permissions `set-fullscreen` et `is-fullscreen`).
+- Rangées : Continuer à jouer (16 derniers jeux installés joués), Favoris, À jouer (statuts À jouer et En cours), Tous les jeux installés. Seules la rangée active et la suivante sont affichées, la rangée active en clair : rien ne passe sous le titre du jeu.
+- Manette : Gamepad API lue à chaque image (`requestAnimationFrame`) uniquement dans ce mode, fenêtre visible et **aucun jeu en cours** (la manette appartient alors au jeu, et rien ne doit tourner pendant une partie). Disposition standard : A/Croix = valider, B/Rond = retour, Y/Triangle = détails, croix directionnelle ou stick gauche (zone morte 0,5) ; répétition après 400 ms puis toutes les 120 ms. Logique pure dans `src/lib/gamepad.ts`, testée.
+- Raccourci : `F11`, bouton Guide (bouton 16 de la disposition standard, transmis par Windows pour certaines manettes seulement), ou Vue + Menu ensemble (toujours disponible, d'où ce second raccourci). Hors Big Picture, la manette n'est lue que 4 fois par seconde, seulement si une manette est branchée et la fenêtre au premier plan.
+- Sons : ceux du thème (jeu « doux » si le thème n'en a pas), activés par défaut dans ce mode ; réglage `bigpicture_sounds`.
+
+## D54 – Récap de l'année (V2.0)
+
+- Calcul en Rust (`recap.rs`) à partir des résumés journaliers de la V1.3 (mêmes règles de jour joué, de bascule et de fuseau) : temps total, jours joués, sessions, jeux, temps par mois, top 5, meilleure série de l'année, jour record (avec ses jeux), plus longue session, launcher préféré, badges.
+- Disponible à partir du 1er décembre pour l'année en cours, toujours pour les années passées. Bannière d'accueil en décembre (année en cours) et en janvier (année précédente) ; bouton dans les Statistiques le reste de l'année (récap de l'année précédente).
+- Profil de joueur : chaque trait reçoit un score = valeur / seuil (part du temps après 22 h ≥ 30 %, session moyenne ≥ 2,5 h, 15 jeux, série de 21 jours, 55 % le week-end, 60 % sur un seul jeu, 200 jours joués) ; le plus fort l'emporte, les deux suivants au-delà du seuil sont cités. Moins d'une heure de jeu, ou aucun trait à mi-seuil : « Joueur tranquille ».
+- Écrans : 8 écrans de 7 s qui s'enchaînent (pause en maintenant le clic, flèches, Échap), animations en `transform`/`opacity`, supprimées si les animations sont réduites.
+- Image : dessinée sur un canvas 1080 × 1350 (format portrait des réseaux sociaux) avec les couleurs et la police d'affichage du thème actif et les vraies jaquettes ; enregistrée par une commande Rust qui vérifie la signature PNG. Aucun visuel extérieur au projet.
+
+## D55 – Profil (V2.0, « Could »)
+
+- Avatar choisi parmi des emojis (aucune image importée, donc rien à stocker ni à protéger), pseudo libre de 32 caractères, jeu favori (par défaut le plus joué). Réglages `profile_name`, `profile_avatar`, `profile_favorite`, sauvegardés et synchronisés avec les autres réglages.
+- Statistiques sur toute la période (page Statistiques « Tout »), profil de joueur de l'année en cours, export en image avec le même moteur que le récap.

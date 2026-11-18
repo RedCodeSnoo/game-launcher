@@ -182,3 +182,12 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Tests : promotions Epic (réponse réelle enregistrée), actualités Steam et nettoyage du texte, trames et activité Discord, captures (sources, correspondance des titres), IGDB (choix du jeu, durées), synchronisation (export, empreinte, restauration sur un autre PC). Total : 137 tests Rust (+5 ignorés : bout en bout, données réelles, services en ligne), 37 tests de l'interface.
 - Vérifié en réel (test `live_integrations`) : jeux gratuits Epic du moment (Knightica, puis Mark of the Deep), actualités de Hades, 2 captures Steam trouvées pour Lethal Company.
 - Non vérifié : Discord (il faut l'identifiant d'une application Discord de l'utilisateur), IGDB (il faut des identifiants Twitch) ; voir `TODO.md`.
+
+## V2.0 – Big Picture et Récap de l'année (`v2.0.0`)
+
+- Mode Big Picture plein écran (manette, clavier, souris), raccourcis F11 / Guide / Vue + Menu, sons de navigation.
+- Récap de l'année en 8 écrans animés, export PNG, bannière d'accueil et bouton dans les Statistiques.
+- Page Profil (avatar, pseudo, jeu favori, badges, statistiques, export en image).
+- Tests : 5 tests de la manette (appui, répétition, stick et zone morte, raccourci Guide ou Vue + Menu, déplacement dans les rangées), 3 tests Rust du récap (profil de joueur, récap d'une année, disponibilité). Total : 140 tests Rust (+5 ignorés), 42 tests de l'interface.
+- Vérifié visuellement : Big Picture (rangées, sélection, détails), les 8 écrans du récap et le Profil dans Sakura, Néon, Automne et Nuit à Kyoto ; corrigé : jaquette sélectionnée sans contour (style écrasé), rangée précédente visible sous le titre, numéro du premier jeu du top 5 qui chevauchait sa jaquette.
+- Non vérifié : une vraie manette (aucune branchée pendant le développement) ; voir `TODO.md`.

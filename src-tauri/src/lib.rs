@@ -21,6 +21,7 @@ pub mod playtime;
 pub mod procs;
 pub mod screenshots;
 pub mod providers;
+pub mod recap;
 pub mod secrets;
 pub mod state;
 pub mod stats;
@@ -362,6 +363,8 @@ pub fn run() {
             commands::get_activity,
             commands::get_activity_day,
             commands::get_streaks,
+            commands::get_recap,
+            commands::save_png,
             commands::set_session_note,
             commands::get_free_games,
             commands::get_game_news,

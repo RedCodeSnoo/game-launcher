@@ -31,6 +31,11 @@
 - **Durée de vie (IGDB)** : analyse testée sur des réponses d'exemple ; aucun appel authentifié fait (pas d'identifiants Twitch).
 - **Captures Xbox Game Bar et NVIDIA** : logique testée sur des dossiers simulés ; sur ce PC seules des captures Steam ont été trouvées en réel.
 
+### Big Picture (V2.0)
+
+- **Vraie manette** : la lecture de la manette est testée sur des états simulés et le mode a été parcouru au clavier ; aucune manette n'était branchée. À essayer : brancher une manette Xbox ou PlayStation, appuyer sur Vue + Menu.
+- **Bouton Guide / PS** : Windows ne le transmet pas pour toutes les manettes (souvent capturé par la Xbox Game Bar ou Steam) ; Vue + Menu et `F11` fonctionnent dans tous les cas.
+
 ## Non fait
 
 - **Fusion de bibliothèques entre PC** : la synchronisation par dossier remplace la bibliothèque à la restauration ; elle ne fusionne pas deux historiques modifiés en parallèle.
@@ -43,4 +48,4 @@
 - **Détection par les raccourcis du Bureau et du menu Démarrer** (F-LOC-06, « Could ») : non fait.
 - **Icônes des succès hors ligne** : elles sont chargées depuis le CDN Steam par la vue web (et conservées par son cache HTTP), pas copiées dans le cache d'images de l'application.
 - **Signature du code** de l'installeur (utile seulement en cas de diffusion publique).
-- **V2+** : mode manette « Big Picture », émulateurs, synchronisation entre PC.
+- **Après V2.0** : émulateurs, fusion de bibliothèques entre PC.

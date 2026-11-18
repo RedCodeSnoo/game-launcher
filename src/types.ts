@@ -370,3 +370,45 @@ export interface SyncInfo {
   remote: SyncManifest | null;
 }
 
+// --- Récap de l'année et profil (V2.0) ---
+
+export interface RecapGame {
+  gameId: string;
+  title: string;
+  coverPath: string | null;
+  heroPath: string | null;
+  seconds: number;
+}
+
+export interface PlayerProfile {
+  id: string;
+  title: string;
+  emoji: string;
+  description: string;
+  traits: string[];
+}
+
+export interface Recap {
+  year: number;
+  available: boolean;
+  totalSeconds: number;
+  daysPlayed: number;
+  sessions: number;
+  gamesPlayed: number;
+  topGames: RecapGame[];
+  bestStreak: number;
+  bestStreakStart: string | null;
+  bestStreakEnd: string | null;
+  recordDay: [string, number] | null;
+  recordDayGames: string[];
+  favoriteSource: [SourceId, number] | null;
+  sourceShare: number;
+  monthly: number[];
+  hourly: number[];
+  longestSession: [string, number] | null;
+  nightShare: number;
+  weekendShare: number;
+  badges: Badge[];
+  profile: PlayerProfile;
+}
+

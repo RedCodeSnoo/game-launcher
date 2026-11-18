@@ -9,12 +9,16 @@ import { GameDetail } from "./components/GameDetail";
 import { Backlog } from "./components/Backlog";
 import { CommandPalette } from "./components/CommandPalette";
 import { Home } from "./components/Home";
+import { BigPicture } from "./components/BigPicture";
+import { ProfilePage } from "./components/Profile";
+import { RecapView } from "./components/Recap";
 import { FreeGamesCard, NewsFeedCard } from "./components/Integrations";
 import { Library, type LibraryView } from "./components/Library";
 import { Roulette } from "./components/Roulette";
 import { SessionJournal } from "./components/SessionJournal";
 import { DEFAULT_COVER } from "./components/GameGrid";
 import { AUTO_COLLECTIONS } from "./lib/organize";
+import { newMemory, readPad } from "./lib/gamepad";
 import { MetadataSettings } from "./components/MetadataSettings";
 import { Settings } from "./components/Settings";
 import { Sidebar, type Page } from "./components/Sidebar";
@@ -50,6 +54,34 @@ function sectionTitle(section: Section, collections: Collection[]): string {
   }
 }
 
+/** Hors Big Picture : surveille la manette à basse fréquence pour le bouton Guide ou Vue + Menu (B-02). */
+function GamepadToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  const [connected, setConnected] = useState(false);
+  useEffect(() => {
+    const on = () => setConnected([...(navigator.getGamepads?.() ?? [])].some((g) => g?.connected));
+    window.addEventListener("gamepadconnected", on);
+    window.addEventListener("gamepaddisconnected", on);
+    on();
+    return () => {
+      window.removeEventListener("gamepadconnected", on);
+      window.removeEventListener("gamepaddisconnected", on);
+    };
+  }, []);
+  useEffect(() => {
+    if (!enabled || !connected) return;
+    const mem = newMemory();
+    const t = window.setInterval(() => {
+      if (document.hidden || !document.hasFocus()) return;
+      const gp = [...(navigator.getGamepads?.() ?? [])].find((g) => g?.connected);
+      if (!gp) return;
+      const actions = readPad(mem, { buttons: gp.buttons.map((b) => b.pressed), axes: [...gp.axes] }, performance.now());
+      if (actions.includes("toggle")) onToggle();
+    }, 250);
+    return () => window.clearInterval(t);
+  }, [enabled, connected, onToggle]);
+  return null;
+}
+
 function Shell() {
   const toasts = useToasts();
   const [games, setGames] = useState<Game[]>([]);
@@ -66,6 +98,8 @@ function Shell() {
   const [coverSize, setCoverSize] = useState(DEFAULT_COVER);
   const [palette, setPalette] = useState(false);
   const [roulette, setRoulette] = useState(false);
+  const [bigPicture, setBigPicture] = useState(false);
+  const [recap, setRecap] = useState<number | null>(null);
   const theme = useTheme();
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [openGameId, setOpenGameId] = useState<string | null>(null);
@@ -116,12 +150,16 @@ function Shell() {
     return () => clearTimeout(t);
   }, [coverSize]);
 
-  // Ctrl+K : recherche rapide (O-05).
+  // Ctrl+K : recherche rapide (O-05) ; F11 : mode Big Picture (B-02).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPalette((v) => !v);
+      }
+      if (e.key === "F11") {
+        e.preventDefault();
+        setBigPicture((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -250,6 +288,7 @@ function Shell() {
         onPage={goPage}
         onSearch={() => setPalette(true)}
         onRoulette={() => setRoulette(true)}
+        onBigPicture={() => setBigPicture(true)}
         status={
           offline ? (
             <p className="flex items-center gap-2 px-2.5 py-1 text-xs text-muted" title="La bibliothèque, le lancement et le suivi des heures fonctionnent sans Internet.">
@@ -283,6 +322,7 @@ function Shell() {
             onStats={() => goPage("stats")}
             onBacklog={() => goPage("backlog")}
             onRoulette={() => setRoulette(true)}
+            onRecap={setRecap}
             extra={
               <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
                 <FreeGamesCard />
@@ -292,10 +332,12 @@ function Shell() {
           />
         ) : page === "backlog" ? (
           <Backlog games={games} onOpen={openGameById} />
+        ) : page === "profile" ? (
+          <ProfilePage games={games} onOpenGame={openGameById} onRecap={setRecap} />
         ) : page === "settings" ? (
           <Settings />
         ) : page === "stats" ? (
-          <Stats onOpenGame={setOpenGameId} refreshKey={version} games={games} />
+          <Stats onOpenGame={setOpenGameId} refreshKey={version} games={games} onRecap={setRecap} />
         ) : (
           <Library
             games={games}
@@ -330,9 +372,12 @@ function Shell() {
       </main>
       {addDialog && <AddGameDialog initialExe={addDialog.exe} onClose={() => setAddDialog(null)} />}
       {wizard && <Wizard onDone={() => setWizard(false)} />}
-      {palette && <CommandPalette games={games} onClose={() => setPalette(false)} onPlay={play} onOpenGame={openGameById} onPage={goPage} onRoulette={() => setRoulette(true)} />}
+      {palette && <CommandPalette games={games} onClose={() => setPalette(false)} onPlay={play} onOpenGame={openGameById} onPage={goPage} onRoulette={() => setRoulette(true)} onBigPicture={() => setBigPicture(true)} />}
       {roulette && <Roulette games={games} onClose={() => setRoulette(false)} onPlay={play} onOpen={(id) => { setRoulette(false); openGameById(id); }} />}
       <SessionJournal />
+      <GamepadToggle enabled={!bigPicture} onToggle={() => setBigPicture(true)} />
+      {bigPicture && <BigPicture games={games} running={running} onPlay={play} onExit={() => setBigPicture(false)} />}
+      {recap !== null && <RecapView year={recap} onClose={() => setRecap(null)} />}
     </div>
   );
 }

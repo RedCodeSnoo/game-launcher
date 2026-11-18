@@ -7,6 +7,7 @@ import { formatMinutes, formatRelative, formatSeconds, hueOf } from "../lib/form
 import { statusInfo } from "../lib/organize";
 import type { Game, Stats } from "../types";
 import { Cover, placeholderGradient, SourceBadge } from "./Cover";
+import { recapYear } from "./Recap";
 import { StreakWidget } from "./StreakWidget";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
   onStats: () => void;
   onBacklog: () => void;
   onRoulette: () => void;
+  onRecap: (year: number) => void;
   /** Encarts ajoutés par les intégrations (jeux gratuits, actualités). */
   extra?: ReactNode;
 }
@@ -60,7 +62,8 @@ function CoverRow({ games, onOpen, onPlay, running }: { games: Game[]; onOpen: (
   );
 }
 
-export function Home({ games, running, onPlay, onOpen, onStats, onBacklog, onRoulette, extra }: Props) {
+export function Home({ games, running, onPlay, onOpen, onStats, onBacklog, onRoulette, onRecap, extra }: Props) {
+  const recap = recapYear();
   const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => {
     const load = () => void api.getStats().then(setStats).catch(() => {});
@@ -133,6 +136,19 @@ export function Home({ games, running, onPlay, onOpen, onStats, onBacklog, onRou
       )}
 
       <div className="flex flex-col gap-8 px-8 py-6">
+        {recap !== null && (
+          <button onClick={() => onRecap(recap)} className="group relative overflow-hidden rounded-2xl border border-accent/50 bg-panel p-6 text-left">
+            <span className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-accent/25 blur-3xl transition group-hover:bg-accent/40" />
+            <span className="relative flex items-center gap-5">
+              <Sparkles size={36} className="text-accent" />
+              <span>
+                <span className="font-display block text-2xl font-bold">Votre récap {recap} est prêt</span>
+                <span className="text-sm text-muted">Temps de jeu, top 5, meilleure série, jour record et votre profil de joueur, à partager en image.</span>
+              </span>
+              <ArrowRight size={22} className="ml-auto text-accent transition group-hover:translate-x-1" />
+            </span>
+          </button>
+        )}
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <Section title="Jeux récents">
             <CoverRow games={recent.slice(hero ? 1 : 0, (hero ? 1 : 0) + 8)} onOpen={onOpen} onPlay={onPlay} running={running} />

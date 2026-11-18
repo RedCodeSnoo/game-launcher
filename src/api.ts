@@ -1,7 +1,7 @@
 // Passerelle vers le backend. Hors Tauri (navigateur, `npm run dev`), un backend simulé prend le relais.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Accounts, Achievement, ActivityGrid, Candidate, Collection, Dashboard, DayDetail, FreeGame, Game, GamePatch, MergeSuggestion, NewsItem, Period, ScanState, Screenshot, Session, SourceId, SourcePatch, SourceStatus, Stats, StatsFilter, StoreMatch, Streaks, SyncInfo, SyncManifest, UpdateInfo, WatchedFolder } from "./types";
+import type { Accounts, Achievement, ActivityGrid, Candidate, Collection, Dashboard, DayDetail, FreeGame, Game, GamePatch, MergeSuggestion, NewsItem, Period, Recap, ScanState, Screenshot, Session, SourceId, SourcePatch, SourceStatus, Stats, StatsFilter, StoreMatch, Streaks, SyncInfo, SyncManifest, UpdateInfo, WatchedFolder } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -76,6 +76,8 @@ export const api = {
   getActivity: (year?: number, gameId?: string) => call<ActivityGrid>("get_activity", { year, gameId }),
   getActivityDay: (day: string, gameId?: string) => call<DayDetail>("get_activity_day", { day, gameId }),
   getStreaks: () => call<Streaks>("get_streaks"),
+  getRecap: (year: number) => call<Recap>("get_recap", { year }),
+  savePng: (path: string, dataUrl: string) => call<void>("save_png", { path, dataUrl }),
   setSessionNote: (sessionId: string, note: string) => call<void>("set_session_note", { sessionId, note }),
   openUrl: (url: string) => call<void>("open_url", { url }),
   getFreeGames: (refresh = false) => call<{ games: FreeGame[]; checkedAt: string | null }>("get_free_games", { refresh }),
@@ -113,6 +115,17 @@ export const api = {
 };
 
 /** Sélecteur de fichier natif (exécutable, image…). */
+/** Plein écran de la fenêtre (mode Big Picture). */
+export async function setFullscreen(on: boolean): Promise<void> {
+  if (!isTauri) {
+    if (on && !document.fullscreenElement) await document.documentElement.requestFullscreen?.().catch(() => {});
+    if (!on && document.fullscreenElement) await document.exitFullscreen?.().catch(() => {});
+    return;
+  }
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().setFullscreen(on);
+}
+
 export async function pickFile(title: string, extensions: string[], defaultPath?: string): Promise<string | null> {
   if (!isTauri) return window.prompt(`${title} (chemin)`) || null;
   const { open } = await import("@tauri-apps/plugin-dialog");

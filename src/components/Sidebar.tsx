@@ -1,6 +1,6 @@
 // Barre latérale : sections de la bibliothèque, sources, collections, pages.
 import { useState, type ReactNode } from "react";
-import { BarChart3, Clock, Dices, EyeOff, FolderHeart, Gamepad2, HardDriveDownload, Heart, Home, Kanban, Library, Search, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { BarChart3, Clock, Dices, EyeOff, FolderHeart, Gamepad2, HardDriveDownload, Heart, Home, Kanban, Library, Search, Settings as SettingsIcon, Sparkles, Tv, UserRound } from "lucide-react";
 import { api } from "../api";
 import { AUTO_COLLECTIONS, inAutoCollection } from "../lib/organize";
 import { useToasts } from "./Toasts";
@@ -9,7 +9,7 @@ import { listSources, type Section } from "../lib/filter";
 import type { Collection, Game, SourceId } from "../types";
 import { StreakWidget } from "./StreakWidget";
 
-export type Page = "home" | "library" | "backlog" | "stats" | "settings";
+export type Page = "home" | "library" | "backlog" | "stats" | "profile" | "settings";
 
 interface Props {
   games: Game[];
@@ -20,6 +20,7 @@ interface Props {
   onPage: (p: Page) => void;
   onSearch: () => void;
   onRoulette: () => void;
+  onBigPicture: () => void;
   status?: ReactNode;
 }
 
@@ -68,7 +69,7 @@ function Heading({ children }: { children: ReactNode }) {
   return <p className="mt-4 px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</p>;
 }
 
-export function Sidebar({ games, collections, page, section, onSection, onPage, onSearch, onRoulette, status }: Props) {
+export function Sidebar({ games, collections, page, section, onSection, onPage, onSearch, onRoulette, onBigPicture, status }: Props) {
   const toasts = useToasts();
   const addToCollection = (gameId: string, c: Collection) => {
     const g = games.find((x) => x.id === gameId);
@@ -182,6 +183,8 @@ export function Sidebar({ games, collections, page, section, onSection, onPage, 
         </div>
         {status}
         <NavItem active={page === "stats"} onClick={() => onPage("stats")} icon={<BarChart3 size={16} />} label={t("nav.stats")} />
+        <NavItem active={page === "profile"} onClick={() => onPage("profile")} icon={<UserRound size={16} />} label="Profil" />
+        <NavItem active={false} onClick={onBigPicture} icon={<Tv size={16} />} label="Big Picture (F11)" />
         <NavItem active={page === "settings"} onClick={() => onPage("settings")} icon={<SettingsIcon size={16} />} label={t("nav.settings")} />
       </div>
     </aside>

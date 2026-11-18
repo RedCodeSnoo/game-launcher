@@ -2,6 +2,17 @@
 
 Chaque section `## [X.Y.Z]` devient le texte de la Release GitHub et de la bannière de mise à jour dans l'application.
 
+## [2.0.0] – 2026-11-18
+
+**Big Picture et Récap de l'année** 📺✨
+
+- **Mode Big Picture** pour jouer depuis le canapé : plein écran, grandes jaquettes en rangées (Continuer à jouer, Favoris, À jouer, Tous les jeux installés), l'illustration du jeu sélectionné en fond, sons de navigation. Tout se fait à la **manette** (Xbox, PlayStation via la Gamepad API : stick ou croix pour se déplacer, A jouer, Y détails, B quitter), au clavier ou à la souris.
+- Entrée et sortie avec **`F11`**, le bouton **Guide** de la manette, ou **Vue + Menu** ensemble.
+- **Récap de l'année** 🎁 : à partir du 1er décembre (et toute l'année pour les années passées), une suite d'écrans animés : temps total et courbe des mois, top 5 des jeux, meilleure série, jour record, launcher préféré, badges et votre **profil de joueur** (Noctambule, Marathonien, Touche-à-tout, Fidèle, Guerrier du week-end…). Bannière sur l'accueil en décembre et janvier, bouton dans les Statistiques.
+- **Export du récap en image PNG** (1080 × 1350, aux couleurs de votre thème) à partager.
+- Nouvelle page **Profil** : avatar, pseudo, jeu favori, badges, statistiques clés, jeux les plus joués, exportable en image.
+- La manette n'est jamais lue pendant une partie : elle reste au jeu.
+
 ## [1.5.0] – 2026-11-18
 
 **Intégrations** 🔌

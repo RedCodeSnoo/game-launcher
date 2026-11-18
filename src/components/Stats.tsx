@@ -113,7 +113,7 @@ function StreakSettings() {
   );
 }
 
-export function Stats({ onOpenGame, refreshKey, games }: { onOpenGame: (id: string) => void; refreshKey: number; games: Game[] }) {
+export function Stats({ onOpenGame, refreshKey, games, onRecap }: { onOpenGame: (id: string) => void; refreshKey: number; games: Game[]; onRecap?: (year: number) => void }) {
   const toasts = useToasts();
   const [period, setPeriod] = useState<Period>("30d");
   const [filter, setFilter] = useState<StatsFilter>({});
@@ -196,6 +196,11 @@ export function Stats({ onOpenGame, refreshKey, games }: { onOpenGame: (id: stri
                 ))}
               </optgroup>
             </select>
+            {onRecap && (
+              <button onClick={() => onRecap(new Date().getMonth() === 11 ? new Date().getFullYear() : new Date().getFullYear() - 1)} className="flex h-9 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm hover:border-accent" title="Récap de l'année">
+                ✨ Récap {new Date().getMonth() === 11 ? new Date().getFullYear() : new Date().getFullYear() - 1}
+              </button>
+            )}
             <button onClick={() => setShowSettings((v) => !v)} className="rounded-md p-2 text-muted hover:bg-panel2 hover:text-fg" aria-label="Réglages des séries" title="Réglages des séries">
               <Settings2 size={17} />
             </button>

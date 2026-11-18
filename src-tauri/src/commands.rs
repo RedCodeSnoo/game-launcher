@@ -726,6 +726,29 @@ pub fn get_activity_day(state: State<'_, Shared>, day: String, game_id: Option<S
     Ok(crate::dashboard::day_detail(&state.conn(), &day, game_id.as_deref())?)
 }
 
+/// Récap d'une année (V2.0).
+#[tauri::command(async)]
+pub fn get_recap(state: State<'_, Shared>, year: i32) -> AppResult<crate::recap::Recap> {
+    let today = crate::activity::today(&state.conn());
+    Ok(crate::recap::compute(&state.conn(), year, &chrono::Local, today)?)
+}
+
+/// Enregistre une image PNG (récap, profil) produite par l'interface (data URL), `.png` uniquement.
+#[tauri::command(async)]
+pub fn save_png(path: String, data_url: String) -> AppResult<()> {
+    use base64::Engine;
+    if extension(Path::new(&path)) != "png" {
+        return Err(AppError::new("BAD_FILE_TYPE", path));
+    }
+    let b64 = data_url.strip_prefix("data:image/png;base64,").ok_or_else(|| AppError::new("BAD_FILE_TYPE", ""))?;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(b64).map_err(|_| AppError::new("BAD_FILE_TYPE", ""))?;
+    if bytes.get(..8) != Some(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        return Err(AppError::new("BAD_FILE_TYPE", ""));
+    }
+    std::fs::write(&path, bytes).map_err(|e| AppError::new("IO", e.to_string()))?;
+    Ok(())
+}
+
 #[tauri::command(async)]
 pub fn get_streaks(state: State<'_, Shared>) -> AppResult<crate::activity::Streaks> {
     Ok(crate::activity::current_streaks(&state.conn())?)
@@ -822,6 +845,10 @@ const UI_SETTINGS: &[&str] = &[
     "screenshot_folders",
     "sync_folder",
     "sync_auto",
+    "profile_name",
+    "profile_avatar",
+    "profile_favorite",
+    "bigpicture_sounds",
 ];
 
 #[tauri::command(async)]

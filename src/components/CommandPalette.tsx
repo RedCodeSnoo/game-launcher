@@ -1,12 +1,12 @@
 // Recherche rapide Ctrl+K (O-05) : trouver et lancer un jeu, ouvrir une page, changer de thème, au clavier.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BarChart3, Dices, Home, Kanban, Library, Palette, Play, Search, Settings, SquareArrowOutUpRight } from "lucide-react";
+import { BarChart3, Dices, Home, Kanban, Library, Palette, Play, Search, Settings, SquareArrowOutUpRight, Tv, UserRound } from "lucide-react";
 import { fuzzyScore, searchGames } from "../lib/organize";
 import { useTheme } from "../themes/ThemeContext";
 import type { Game } from "../types";
 import { Cover } from "./Cover";
 
-export type PaletteTarget = "home" | "library" | "backlog" | "stats" | "settings";
+export type PaletteTarget = "home" | "library" | "backlog" | "stats" | "profile" | "settings";
 
 interface Item {
   id: string;
@@ -26,9 +26,10 @@ interface Props {
   onOpenGame: (id: string) => void;
   onPage: (p: PaletteTarget) => void;
   onRoulette: () => void;
+  onBigPicture?: () => void;
 }
 
-export function CommandPalette({ games, onClose, onPlay, onOpenGame, onPage, onRoulette }: Props) {
+export function CommandPalette({ games, onClose, onPlay, onOpenGame, onPage, onRoulette, onBigPicture }: Props) {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -59,10 +60,12 @@ export function CommandPalette({ games, onClose, onPlay, onOpenGame, onPage, onR
         ["library", "Bibliothèque", <Library size={16} />],
         ["backlog", "Backlog", <Kanban size={16} />],
         ["stats", "Statistiques", <BarChart3 size={16} />],
+        ["profile", "Profil", <UserRound size={16} />],
         ["settings", "Paramètres", <Settings size={16} />],
       ] as [PaletteTarget, string, ReactNode][]
     ).map(([id, label, icon]) => ({ id: `page:${id}`, group: "Pages", label, icon, run: close(() => onPage(id)) }));
     const actions: Item[] = [{ id: "action:roulette", group: "Actions", label: "Je sais pas à quoi jouer", hint: "Roulette", icon: <Dices size={16} />, run: close(onRoulette) }];
+    if (onBigPicture) actions.push({ id: "action:bigpicture", group: "Actions", label: "Mode Big Picture", hint: "F11", icon: <Tv size={16} />, run: close(onBigPicture) });
     const themeItems: Item[] = themes.map((t) => ({ id: `theme:${t.id}`, group: "Thèmes", label: `Thème : ${t.name}`, hint: t.emoji, icon: <Palette size={16} />, run: close(() => setTheme(t.id)) }));
     const others = [...pages, ...actions, ...themeItems]
       .map((it) => ({ it, s: query ? fuzzyScore(query, it.label) : 1 }))
