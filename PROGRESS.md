@@ -191,3 +191,9 @@ Les nouveaux écrans (boutons d'arrêt, colonne Origine, modification de l'heure
 - Tests : 5 tests de la manette (appui, répétition, stick et zone morte, raccourci Guide ou Vue + Menu, déplacement dans les rangées), 3 tests Rust du récap (profil de joueur, récap d'une année, disponibilité). Total : 140 tests Rust (+5 ignorés), 42 tests de l'interface.
 - Vérifié visuellement : Big Picture (rangées, sélection, détails), les 8 écrans du récap et le Profil dans Sakura, Néon, Automne et Nuit à Kyoto ; corrigé : jaquette sélectionnée sans contour (style écrasé), rangée précédente visible sous le titre, numéro du premier jeu du top 5 qui chevauchait sa jaquette.
 - Non vérifié : une vraie manette (aucune branchée pendant le développement) ; voir `TODO.md`.
+
+## Correctif 2.0.1 (`v2.0.1`)
+
+- Blocage de la base par le fil d'actualités (bibliothèque vide, images figées, fenêtre figée à la fermeture) corrigé ; garde contre tout double verrou ; croix hors du fil principal.
+- Images du cache ramenées à leur taille d'affichage, cache existant allégé en arrière-plan ; bibliothèque gardée en mémoire entre les onglets.
+- Tests : 3 tests du verrou (libération, double verrou détecté sans blocage, fil d'actualités), 3 tests des images (redimensionnement, transparence des logos, passe sur le cache). Total : 146 tests Rust (+6 ignorés), 42 tests de l'interface.

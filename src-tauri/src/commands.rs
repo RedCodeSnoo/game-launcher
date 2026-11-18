@@ -1125,14 +1125,22 @@ pub fn get_game_news(state: State<'_, Shared>, game_id: String) -> AppResult<Vec
     Ok(items)
 }
 
-/// Fil d'actualités de l'accueil : jeux Steam joués récemment (ou installés), 3 actualités chacun au plus.
-#[tauri::command(async)]
-pub fn get_news_feed(state: State<'_, Shared>) -> AppResult<Vec<crate::integrations::NewsItem>> {
-    let mut games: Vec<library::GameView> = library::list_visible_games(&state.conn(), &state.disabled_sources())?
+/// Jeux Steam du fil d'actualités, les plus récemment joués d'abord.
+/// (Les sources désactivées sont lues avant de prendre le verrou de la base : le prendre deux fois bloquait tout.)
+pub fn news_feed_games(state: &crate::state::AppState) -> AppResult<Vec<library::GameView>> {
+    let disabled = state.disabled_sources();
+    let mut games: Vec<library::GameView> = library::list_visible_games(&state.conn(), &disabled)?
         .into_iter()
         .filter(|g| !g.hidden && g.sources.iter().any(|s| s.source.source == SourceId::Steam && (s.source.installed || g.last_played.is_some())))
         .collect();
     games.sort_by(|a, b| b.last_played.cmp(&a.last_played));
+    Ok(games)
+}
+
+/// Fil d'actualités de l'accueil : jeux Steam joués récemment (ou installés), 3 actualités chacun au plus.
+#[tauri::command(async)]
+pub fn get_news_feed(state: State<'_, Shared>) -> AppResult<Vec<crate::integrations::NewsItem>> {
+    let games = news_feed_games(&state)?;
     let mut out = Vec::new();
     for g in games.iter().take(8) {
         let Some(s) = g.sources.iter().find(|s| s.source.source == SourceId::Steam) else { continue };

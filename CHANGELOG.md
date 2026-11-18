@@ -2,6 +2,15 @@
 
 Chaque section `## [X.Y.Z]` devient le texte de la Release GitHub et de la bannière de mise à jour dans l'application.
 
+## [2.0.1] – 2026-11-18
+
+**Correctif important** 🚑
+
+- **Bibliothèque vide, images qui ne s'affichent plus, application figée, plantage en cliquant sur la croix** : depuis la 1.5.0, le fil d'actualités de l'accueil bloquait l'accès à la base de données (verrou pris deux fois). Corrigé, avec un garde-fou qui empêche ce type de blocage de revenir. **Vos données n'ont jamais été perdues** : elles réapparaissent telles quelles.
+- **Images beaucoup plus légères** : les jaquettes, illustrations et logos sont ramenés à leur taille d'affichage (certains logos pesaient 14 Mo). Les images déjà téléchargées sont allégées automatiquement en arrière-plan au premier démarrage.
+- **Changement d'onglet instantané** : la bibliothèque reste chargée quand vous allez sur l'accueil, les statistiques ou une fiche ; jaquettes et position de défilement sont conservées.
+- La croix ne peut plus figer la fenêtre, quoi que fasse l'application en arrière-plan.
+
 ## [2.0.0] – 2026-11-18
 
 **Big Picture et Récap de l'année** 📺✨

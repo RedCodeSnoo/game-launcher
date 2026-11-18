@@ -257,6 +257,15 @@ function Shell() {
   );
 
   const openGame = useMemo(() => games.find((g) => g.id === openGameId) ?? null, [games, openGameId]);
+  const libraryVisible = !openGame && page === "library";
+  // Au réaffichage, la grille virtualisée relit la position de défilement (aucun événement « scroll » n'est émis
+  // quand le navigateur la restaure) : sans cela, elle pouvait rester vide.
+  const libraryBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!libraryVisible) return;
+    const id = requestAnimationFrame(() => libraryBox.current?.querySelectorAll<HTMLElement>(".overflow-y-auto, .overflow-auto").forEach((el) => el.dispatchEvent(new Event("scroll"))));
+    return () => cancelAnimationFrame(id);
+  }, [libraryVisible]);
   // Thème dynamique : couleur et fond tirés de la jaquette du jeu affiché.
   const dynamicSource = openGame ? (imageUrl(openGame.coverPath) ?? null) : null;
   useEffect(() => setDynamicImage(dynamicSource), [dynamicSource, setDynamicImage]);
@@ -338,7 +347,9 @@ function Shell() {
           <Settings />
         ) : page === "stats" ? (
           <Stats onOpenGame={setOpenGameId} refreshKey={version} games={games} onRecap={setRecap} />
-        ) : (
+        ) : null}
+        {/* La bibliothèque reste montée (cachée) : en revenant d'une fiche ou d'un onglet, jaquettes et défilement sont intacts. */}
+        <div ref={libraryBox} className={libraryVisible ? "h-full" : "hidden"}>
           <Library
             games={games}
             loading={loading}
@@ -367,7 +378,7 @@ function Shell() {
             }
             banner={section.kind === "all" ? <MergeBanner games={games} suggestions={suggestions} onChanged={reload} /> : undefined}
           />
-        )}
+        </div>
         </div>
       </main>
       {addDialog && <AddGameDialog initialExe={addDialog.exe} onClose={() => setAddDialog(null)} />}

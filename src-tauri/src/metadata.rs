@@ -94,10 +94,15 @@ pub fn store_image(data_dir: &Path, game_id: &str, kind: ImageKind, bytes: &[u8]
             }
         }
     }
+    // Ramenée à sa taille d'affichage (voir `imgopt`).
+    let (bytes, ext) = match crate::imgopt::optimize(bytes, kind) {
+        Some((small, ext)) => (std::borrow::Cow::Owned(small), ext),
+        None => (std::borrow::Cow::Borrowed(bytes), extension_of(bytes, ext_hint)),
+    };
     // Horodatage dans le nom : l'interface ne garde pas l'ancienne image en cache.
     let stamp = chrono::Utc::now().timestamp_millis();
-    let path = dir.join(format!("{prefix}_{stamp}.{}", extension_of(bytes, ext_hint)));
-    std::fs::write(&path, bytes)?;
+    let path = dir.join(format!("{prefix}_{stamp}.{ext}"));
+    std::fs::write(&path, &*bytes)?;
     Ok(path.to_string_lossy().to_string())
 }
 

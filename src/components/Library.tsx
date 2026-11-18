@@ -54,6 +54,7 @@ export function Library(props: Props) {
   // Ctrl+F ou « / » : accès direct à la recherche au clavier.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!searchRef.current?.offsetParent) return; // bibliothèque cachée (autre page affichée)
       const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
       if ((e.ctrlKey && e.key.toLowerCase() === "f") || (e.key === "/" && !typing)) {
         e.preventDefault();

@@ -10,6 +10,7 @@ pub mod drives;
 pub mod error;
 pub mod http;
 pub mod igdb;
+pub mod imgopt;
 pub mod integrations;
 pub mod launch;
 pub mod library;
@@ -229,7 +230,9 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![system::AUTOSTART_ARG])))
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
-                on_close_requested(window.app_handle());
+                // Hors du fil principal : la croix ne doit jamais attendre la base (une synchronisation peut la tenir).
+                let app = window.app_handle().clone();
+                std::thread::spawn(move || on_close_requested(&app));
             }
         })
         .setup(move |app| {
@@ -308,6 +311,20 @@ pub fn run() {
             {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || updates::run_loop(handle));
+            }
+
+            // Allègement des images du cache trop lourdes (une seule fois ; ensuite chaque image l'est à l'enregistrement).
+            {
+                let (state, emit) = (state.clone(), emit.clone());
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    let t = std::time::Instant::now();
+                    match imgopt::optimize_cache(&state, &emit) {
+                        Ok(0) => {}
+                        Ok(n) => log::info!("images allégées : {n} en {:.1} s", t.elapsed().as_secs_f64()),
+                        Err(e) => log::warn!("allègement des images : {e:#}"),
+                    }
+                });
             }
 
             // Branchement ou débranchement d'un disque (F-EXT-03/04).

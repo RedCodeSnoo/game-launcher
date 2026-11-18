@@ -154,6 +154,46 @@ mod tests {
         println!("badges obtenus : {:?} ; calcul en {:?}", d.badges.iter().filter(|b| b.earned).map(|b| b.name).collect::<Vec<_>>(), t.elapsed());
     }
 
+    /// Temps de chaque calcul sur une copie des données réelles (GL_CHECK_DATA_DIR).
+    #[test]
+    #[ignore]
+    fn real_data_timings() {
+        let dir = std::path::PathBuf::from(std::env::var("GL_CHECK_DATA_DIR").expect("GL_CHECK_DATA_DIR"));
+        let t = std::time::Instant::now();
+        let conn = crate::db::open(&dir.join("library.db")).unwrap();
+        println!("ouverture + migrations : {:?}", t.elapsed());
+        let none = std::collections::HashSet::new();
+        let t = std::time::Instant::now();
+        crate::activity::ensure_fresh(&conn, &chrono::Local).unwrap();
+        println!("ensure_fresh : {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        let games = crate::library::list_visible_games(&conn, &none).unwrap();
+        println!("list_visible_games ({}) : {:?}", games.len(), t.elapsed());
+        let t = std::time::Instant::now();
+        let json = serde_json::to_string(&games).unwrap();
+        println!("sérialisation : {} octets en {:?}", json.len(), t.elapsed());
+        let t = std::time::Instant::now();
+        crate::stats::compute(&conn, &none).unwrap();
+        println!("stats : {:?}", t.elapsed());
+        for p in [crate::dashboard::Period::Month, crate::dashboard::Period::All] {
+            let t = std::time::Instant::now();
+            crate::dashboard::compute(&conn, &none, p, &Default::default(), &chrono::Local, chrono::Utc::now()).unwrap();
+            println!("dashboard : {:?}", t.elapsed());
+        }
+        let t = std::time::Instant::now();
+        crate::activity::current_streaks(&conn).unwrap();
+        println!("streaks : {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        crate::recap::compute(&conn, 2026, &chrono::Local, chrono::Local::now().date_naive()).unwrap();
+        println!("recap : {:?}", t.elapsed());
+        let t = std::time::Instant::now();
+        crate::library::recent_games(&conn, &none, 5).unwrap();
+        println!("recent_games : {:?}", t.elapsed());
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM play_sessions", [], |r| r.get(0)).unwrap();
+        let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        println!("sessions : {n}, version : {v}");
+    }
+
     /// Base d'avant la migration v4 (sans date) : datée par la première sauvegarde qui contient la valeur.
     #[test]
     fn legacy_manual_entries_are_dated_from_the_backups() {
